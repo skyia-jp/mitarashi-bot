@@ -1,0 +1,304 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Guild {
+  id            String          @id
+  name          String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  config        GuildConfig?
+  reminders     Reminder[]
+  roleMenus     RoleMenu[]
+  filterTerms   FilterTerm[]
+  warnings      Warning[]
+  moderationLog ModerationAction[]
+  pinnedMessages PinnedMessage[]
+  tickets       Ticket[]
+  members       GuildUser[]
+  polls         Poll[]
+  notes         Note[]
+  tasks         Task[]
+  activityRecords ActivityRecord[]
+  scheduledJobs ScheduledJob[]
+  gameBiases    GameBias[]
+}
+
+model GuildConfig {
+  id             Int      @id @default(autoincrement())
+  guildId        String   @unique
+  logChannelId   String?
+  muteRoleId     String?
+  timezone       String?  @default("Asia/Tokyo")
+  reminderRoleId String?
+  autoRoleId     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  guild          Guild    @relation(fields: [guildId], references: [id])
+}
+
+model User {
+  id                   Int                 @id @default(autoincrement())
+  discordId            String              @unique
+  username             String?
+  guildUsers           GuildUser[]
+  reminders            Reminder[]
+  warnings             Warning[]           @relation("WarningTarget")
+  issuedWarnings       Warning[]           @relation("WarningModerator")
+  moderationActions    ModerationAction[]  @relation("ActionTarget")
+  issuedActions        ModerationAction[]  @relation("ActionModerator")
+  createdRoleMenus     RoleMenu[]          @relation("RoleMenuCreatedBy")
+  createdFilterTerms   FilterTerm[]        @relation("FilterTermCreatedBy")
+  pinnedMessages       PinnedMessage[]     @relation("PinnedByUser")
+  tickets              Ticket[]            @relation("TicketOwner")
+  pollsCreated        Poll[]               @relation("PollCreatedBy")
+  pollVotes           PollVote[]
+  notes               Note[]               @relation("NoteAuthor")
+  tasksCreated        Task[]               @relation("TaskCreator")
+  tasksAssigned       Task[]               @relation("TaskAssignee")
+  activityRecords     ActivityRecord[]     @relation("ActivityUser")
+  gameBiases          GameBias[]
+}
+
+model GuildUser {
+  id        Int      @id @default(autoincrement())
+  guildId   String
+  userId    Int
+  joinedAt  DateTime @default(now())
+  isMuted   Boolean  @default(false)
+  guild     Guild    @relation(fields: [guildId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([guildId, userId])
+}
+
+model Reminder {
+  id            Int      @id @default(autoincrement())
+  guildId       String
+  userId        Int
+  channelId     String
+  message       String
+  cronExpression String
+  nextTriggerAt DateTime?
+  timezone      String  @default("Asia/Tokyo")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  guild         Guild   @relation(fields: [guildId], references: [id])
+  user          User    @relation(fields: [userId], references: [id])
+}
+
+model RoleMenu {
+  id            Int        @id @default(autoincrement())
+  guildId       String
+  channelId     String
+  messageId     String?
+  title         String
+  description   String?
+  maxSelectable Int        @default(1)
+  createdById   Int
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  guild         Guild      @relation(fields: [guildId], references: [id])
+  createdBy     User       @relation("RoleMenuCreatedBy", fields: [createdById], references: [id])
+  options       RoleMenuOption[]
+}
+
+model RoleMenuOption {
+  id          Int      @id @default(autoincrement())
+  roleMenuId  Int
+  roleId      String
+  label       String
+  description String?
+  emoji       String?
+  isDefault   Boolean @default(false)
+  roleMenu    RoleMenu @relation(fields: [roleMenuId], references: [id])
+
+  @@unique([roleMenuId, roleId])
+}
+
+model FilterTerm {
+  id          Int      @id @default(autoincrement())
+  guildId     String
+  term        String
+  severity    Int      @default(1)
+  createdById Int?
+  createdAt   DateTime @default(now())
+  guild       Guild    @relation(fields: [guildId], references: [id])
+  createdBy   User?    @relation("FilterTermCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([guildId, term])
+}
+
+model Warning {
+  id           Int      @id @default(autoincrement())
+  guildId      String
+  userId       Int
+  moderatorId  Int
+  reason       String
+  penaltyLevel Int      @default(1)
+  createdAt    DateTime @default(now())
+  guild        Guild    @relation(fields: [guildId], references: [id])
+  user         User     @relation("WarningTarget", fields: [userId], references: [id])
+  moderator    User     @relation("WarningModerator", fields: [moderatorId], references: [id])
+}
+
+model ModerationAction {
+  id              Int      @id @default(autoincrement())
+  guildId         String
+  userId          Int
+  moderatorId     Int
+  actionType      String
+  reason          String?
+  expiresAt       DateTime?
+  createdAt       DateTime @default(now())
+  guild           Guild    @relation(fields: [guildId], references: [id])
+  targetUser      User     @relation("ActionTarget", fields: [userId], references: [id])
+  moderator       User     @relation("ActionModerator", fields: [moderatorId], references: [id])
+}
+
+model PinnedMessage {
+  id          Int      @id @default(autoincrement())
+  guildId     String
+  channelId   String
+  messageId   String
+  pinnedById  Int
+  expiresAt   DateTime?
+  sourceMessageId String?
+  cloneMessageId  String?
+  snapshotContent String?
+  snapshotEmbeds  Json?
+  snapshotFiles   Json?
+  createdAt   DateTime @default(now())
+  guild       Guild    @relation(fields: [guildId], references: [id])
+  pinnedBy    User     @relation("PinnedByUser", fields: [pinnedById], references: [id])
+
+  @@unique([guildId, channelId])
+  @@unique([guildId, channelId, messageId])
+}
+
+model Poll {
+  id           Int           @id @default(autoincrement())
+  guildId      String
+  channelId    String
+  messageId    String?
+  question     String
+  status       String        @default("open")
+  createdById  Int
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  guild        Guild         @relation(fields: [guildId], references: [id])
+  createdBy    User          @relation("PollCreatedBy", fields: [createdById], references: [id])
+  options      PollOption[]
+  votes        PollVote[]
+}
+
+model PollOption {
+  id        Int      @id @default(autoincrement())
+  pollId    Int
+  label     String
+  emoji     String?
+  position  Int
+  poll      Poll     @relation(fields: [pollId], references: [id])
+  votes     PollVote[]
+
+  @@unique([pollId, position])
+}
+
+model PollVote {
+  id        Int      @id @default(autoincrement())
+  pollId    Int
+  optionId  Int
+  userId    Int
+  createdAt DateTime @default(now())
+  poll      Poll     @relation(fields: [pollId], references: [id])
+  option    PollOption @relation(fields: [optionId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([pollId, userId])
+}
+
+model Note {
+  id        Int      @id @default(autoincrement())
+  guildId   String
+  authorId  Int
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  guild     Guild    @relation(fields: [guildId], references: [id])
+  author    User     @relation("NoteAuthor", fields: [authorId], references: [id])
+}
+
+model Task {
+  id          Int      @id @default(autoincrement())
+  guildId     String
+  creatorId   Int
+  assigneeId  Int?
+  description String
+  status      String   @default("open")
+  dueDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  guild       Guild    @relation(fields: [guildId], references: [id])
+  creator     User     @relation("TaskCreator", fields: [creatorId], references: [id])
+  assignee    User?    @relation("TaskAssignee", fields: [assigneeId], references: [id])
+}
+
+model ActivityRecord {
+  id           Int      @id @default(autoincrement())
+  guildId      String
+  userId       Int
+  date         DateTime
+  messageCount Int      @default(0)
+  voiceMinutes Int      @default(0)
+  lastUpdated  DateTime @default(now())
+  guild        Guild    @relation(fields: [guildId], references: [id])
+  user         User     @relation("ActivityUser", fields: [userId], references: [id])
+
+  @@unique([guildId, userId, date])
+}
+
+model ScheduledJob {
+  id        Int      @id @default(autoincrement())
+  guildId   String
+  type      String
+  schedule  String
+  data      Json?
+  lastRun   DateTime?
+  isActive  Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  guild     Guild    @relation(fields: [guildId], references: [id])
+
+  @@unique([guildId, type])
+}
+
+model Ticket {
+  id             Int      @id @default(autoincrement())
+  guildId        String
+  userId         Int
+  channelId      String
+  status         String   @default("open")
+  createdAt      DateTime @default(now())
+  closedAt       DateTime?
+  guild          Guild    @relation(fields: [guildId], references: [id])
+  user           User     @relation("TicketOwner", fields: [userId], references: [id])
+}
+
+model GameBias {
+  id        Int      @id @default(autoincrement())
+  guildId   String
+  userId    Int
+  gameType  String
+  lossCount Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  guild     Guild    @relation(fields: [guildId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([guildId, userId, gameType])
+}

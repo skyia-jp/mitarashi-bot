@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: discord-utility-bot
+  labels:
+    app: discord-utility-bot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: discord-utility-bot
+  template:
+    metadata:
+      labels:
+        app: discord-utility-bot
+    spec:
+      containers:
+        - name: bot
+          image: ghcr.io/your-org/discord-utility-bot:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: discord-utility-bot-secrets
+            - configMapRef:
+                name: discord-utility-bot-config
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi

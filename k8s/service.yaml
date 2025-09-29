@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: discord-utility-bot
+  labels:
+    app: discord-utility-bot
+spec:
+  selector:
+    app: discord-utility-bot
+  ports:
+    - name: metrics
+      port: 9100
+      targetPort: 9100
+      protocol: TCP
+  type: ClusterIP
