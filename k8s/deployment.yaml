@@ -29,7 +29,7 @@ spec:
       containers:
         - name: bot
           image: kemar1/mitarashi-bot:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           envFrom:
             - secretRef:
                 name: mitarashi-bot
