@@ -13,4 +13,4 @@ COPY . .
 RUN npx prisma generate
 
 ENV NODE_ENV=production
-CMD ["npx", "prisma", "db", "push", "--skip-generate", "&&", "npm", "start"]
+CMD ["sh", "-c", "npx prisma db push && npm run src/index.js"]
