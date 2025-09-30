@@ -8,9 +8,4 @@ metadata:
 spec:
   selector:
     app: mitarashi-bot
-  ports:
-    - name: metrics
-      port: 9100
-      targetPort: 9100
-      protocol: TCP
   type: ClusterIP
