@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: bot
-          image: kemar1/mitarashi-bot:latest
+          image: docker.io/kemar1/mitarashi-bot:latest
           imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef:
