@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: bot
-          image: ghcr.io/your-org/mitarashi-bot:latest
+          image: kemar1/mitarashi-bot:latest
           imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef:
