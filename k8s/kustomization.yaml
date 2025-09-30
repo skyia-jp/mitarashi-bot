@@ -4,7 +4,6 @@ namespace: ibuki-mitarashi-bot
 resources:
   - configmap.yaml
   - deployment.yaml
-  - service.yaml
   - mysql-statefulset.yaml
   - mysql-service.yaml
   - sealed/env.yaml
