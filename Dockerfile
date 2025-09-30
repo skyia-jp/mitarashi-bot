@@ -13,4 +13,4 @@ COPY . .
 RUN npx prisma generate
 
 ENV NODE_ENV=production
-CMD ["npm", "start"]
+CMD ["npx", "prisma", "db", "push", "&&","npm", "start"]
