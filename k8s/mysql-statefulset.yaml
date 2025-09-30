@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mitarashi-db
+  namespace: ibuki-mitarashi-bot
+spec:
+  serviceName: mitarashi-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mitarashi-db
+  template:
+    metadata:
+      labels:
+        app: mitarashi-db
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.3
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-root-secret
+                  key: password
+            - name: MYSQL_DATABASE
+              value: discord_bot
+            - name: MYSQL_USER
+              value: yahari
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mitarashi-bot
+                  key: DB_PASSWORD
+          ports:
+            - containerPort: 3306
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 5Gi
