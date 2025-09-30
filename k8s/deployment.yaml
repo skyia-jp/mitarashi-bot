@@ -15,6 +15,17 @@ spec:
       labels:
         app: mitarashi-bot
     spec:
+      initContainers:
+        - name: wait-for-mysql
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - >-
+              until nc -zvw3 mitarashi-db 3306; do
+                echo "waiting for MySQL";
+                sleep 3;
+              done
       containers:
         - name: bot
           image: kemar1/mitarashi-bot:latest
