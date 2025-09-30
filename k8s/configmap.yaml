@@ -1,8 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: discord-utility-bot-config
+  name: mitarashi-bot-config
+  namespace: ibuki-mitarashi-bot
   labels:
-    app: discord-utility-bot
+    app: mitarashi-bot
 data:
   DEFAULT_TIMEZONE: "Asia/Tokyo"

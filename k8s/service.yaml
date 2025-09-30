@@ -1,12 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: discord-utility-bot
+  name: mitarashi-bot
+  namespace: ibuki-mitarashi-bot
   labels:
-    app: discord-utility-bot
+    app: mitarashi-bot
 spec:
   selector:
-    app: discord-utility-bot
+    app: mitarashi-bot
   ports:
     - name: metrics
       port: 9100

@@ -1,28 +1,29 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: discord-utility-bot
+  name: mitarashi-bot
+  namespace: ibuki-mitarashi-bot
   labels:
-    app: discord-utility-bot
+    app: mitarashi-bot
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: discord-utility-bot
+      app: mitarashi-bot
   template:
     metadata:
       labels:
-        app: discord-utility-bot
+        app: mitarashi-bot
     spec:
       containers:
         - name: bot
-          image: ghcr.io/your-org/discord-utility-bot:latest
+          image: ghcr.io/your-org/mitarashi-bot:latest
           imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef:
-                name: discord-utility-bot-secrets
+                name: mitarashi-bot
             - configMapRef:
-                name: discord-utility-bot-config
+                name: mitarashi-bot-config
           resources:
             requests:
               cpu: 100m
