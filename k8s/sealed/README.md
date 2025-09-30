@@ -20,7 +20,12 @@
 kubectl create secret generic mitarashi-bot `
 	--namespace ibuki-mitarashi-bot `
 	--from-literal=DISCORD_BOT_TOKEN=xxx `
-	--from-literal=DATABASE_URL="mysql://user:pass@mitarashi-bot-db:3306/mitarashi" `
+	--from-literal=DATABASE_URL="mysql://user:pass@mitarashi-db:3306/mitarashi" `
+	--from-literal=DB_HOST=mitarashi-db `
+	--from-literal=DB_PORT=3306 `
+	--from-literal=DB_USER=yahari `
+	--from-literal=DB_PASSWORD="Sh0w11o9." `
+	--from-literal=DB_NAME=discord_bot `
 	--dry-run=client -o yaml > secret.yaml
 
 Get-Content -Raw secret.yaml | kubeseal `
