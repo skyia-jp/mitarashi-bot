@@ -6,6 +6,7 @@
 # Runtime secrets (Sealed Secret scratch files)
 k8s/sealed/secret.yaml
 k8s/sealed/.env
+k8s/sealed/raw_env.yaml
 
 # Dependencies & build artifacts
 node_modules/
