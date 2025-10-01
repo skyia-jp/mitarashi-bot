@@ -29,7 +29,11 @@ export default {
         return;
       }
       if (error instanceof FilterTermExistsError) {
-        await interaction.reply({ content: `⚠️ 禁止用語 "${error.term}" はすでに登録されています。`, ephemeral: true });
+        const { term, existingTerm } = error;
+        const message = existingTerm && existingTerm !== term
+          ? `⚠️ 禁止用語 "${term}" は既に "${existingTerm}" として登録されています。`
+          : `⚠️ 禁止用語 "${term}" はすでに登録されています。`;
+        await interaction.reply({ content: message, ephemeral: true });
         return;
       }
       throw error;

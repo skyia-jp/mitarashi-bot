@@ -9,6 +9,10 @@ function buildKey(guildId) {
   return `filter:${guildId}`;
 }
 
+function getCache(guildId) {
+  return cache.get(buildKey(guildId));
+}
+
 function normalizeForComparison(text) {
   if (!text) return '';
   const canonical = text.normalize('NFKC');
@@ -17,10 +21,11 @@ function normalizeForComparison(text) {
 }
 
 export class FilterTermExistsError extends Error {
-  constructor(term) {
-    super(`Filter term already exists: ${term}`);
+  constructor(term, existingTerm) {
+    super(`Filter term already exists: ${existingTerm ?? term}`);
     this.name = 'FilterTermExistsError';
     this.term = term;
+    this.existingTerm = existingTerm ?? term;
   }
 }
 
@@ -33,7 +38,10 @@ export class InvalidFilterTermError extends Error {
 
 export async function loadTerms(guildId) {
   const terms = await listFilterTerms(guildId);
-  cache.set(buildKey(guildId), terms.map((term) => normalizeForComparison(term.term)));
+  const map = new Map(
+    terms.map((term) => [normalizeForComparison(term.term), term])
+  );
+  cache.set(buildKey(guildId), map);
   return terms;
 }
 
@@ -42,7 +50,7 @@ export async function ensureTerms(guildId) {
   if (!cache.has(key)) {
     await loadTerms(guildId);
   }
-  return cache.get(key) ?? [];
+  return cache.get(key) ?? new Map();
 }
 
 export async function addTerm(interaction, term, severity = 1) {
@@ -53,8 +61,9 @@ export async function addTerm(interaction, term, severity = 1) {
 
   const normalized = normalizeForComparison(trimmed);
   const existing = await ensureTerms(interaction.guildId);
-  if (existing.includes(normalized)) {
-    throw new FilterTermExistsError(trimmed);
+  const duplicate = existing.get(normalized);
+  if (duplicate) {
+    throw new FilterTermExistsError(trimmed, duplicate.term);
   }
 
   const user = await getOrCreateUser(interaction.user);
@@ -63,7 +72,9 @@ export async function addTerm(interaction, term, severity = 1) {
     await addFilterTerm(interaction.guildId, trimmed, severity, user.id);
   } catch (error) {
     if (error?.code === 'P2002') {
-      throw new FilterTermExistsError(trimmed);
+      const refreshed = await ensureTerms(interaction.guildId);
+      const existingTerm = refreshed.get(normalized)?.term;
+      throw new FilterTermExistsError(trimmed, existingTerm);
     }
     throw error;
   }
@@ -78,8 +89,13 @@ export async function deleteTerm(guildId, term) {
 }
 
 export function containsFilteredTerm(guildId, content) {
-  const terms = cache.get(buildKey(guildId));
-  if (!terms?.length || !content) return false;
+  const terms = getCache(guildId);
+  if (!terms?.size || !content) return false;
   const normalized = normalizeForComparison(content);
-  return terms.some((term) => normalized.includes(term));
+  for (const candidate of terms.keys()) {
+    if (normalized.includes(candidate)) {
+      return true;
+    }
+  }
+  return false;
 }
