@@ -13,6 +13,19 @@ function getCache(guildId) {
   return cache.get(buildKey(guildId));
 }
 
+function coerceToMap(key) {
+  const cached = cache.get(key);
+  if (cached instanceof Map) {
+    return cached;
+  }
+  if (Array.isArray(cached)) {
+    const fallback = new Map(cached.map((value) => [value, { term: value }]));
+    cache.set(key, fallback);
+    return fallback;
+  }
+  return undefined;
+}
+
 function normalizeForComparison(text) {
   if (!text) return '';
   const canonical = text.normalize('NFKC');
@@ -47,10 +60,21 @@ export async function loadTerms(guildId) {
 
 export async function ensureTerms(guildId) {
   const key = buildKey(guildId);
-  if (!cache.has(key)) {
-    await loadTerms(guildId);
+  const initial = cache.get(key);
+  let terms = coerceToMap(key);
+  if (initial instanceof Map && terms) {
+    return terms;
   }
-  return cache.get(key) ?? new Map();
+
+  await loadTerms(guildId);
+  terms = coerceToMap(key);
+  if (terms) {
+    return terms;
+  }
+
+  const empty = new Map();
+  cache.set(key, empty);
+  return empty;
 }
 
 export async function addTerm(interaction, term, severity = 1) {
@@ -89,13 +113,21 @@ export async function deleteTerm(guildId, term) {
 }
 
 export function containsFilteredTerm(guildId, content) {
+  const key = buildKey(guildId);
   const terms = getCache(guildId);
-  if (!terms?.size || !content) return false;
+  if (!terms || !content) return false;
   const normalized = normalizeForComparison(content);
-  for (const candidate of terms.keys()) {
-    if (normalized.includes(candidate)) {
-      return true;
+  if (terms instanceof Map) {
+    for (const candidate of terms.keys()) {
+      if (normalized.includes(candidate)) {
+        return true;
+      }
     }
+    return false;
   }
+  if (Array.isArray(terms)) {
+    return terms.some((candidate) => normalized.includes(candidate));
+  }
+  cache.delete(key);
   return false;
 }
