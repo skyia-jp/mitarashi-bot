@@ -1,4 +1,4 @@
-import { toHiragana } from 'wanakana';
+import { toHiragana, toKatakana, isHiragana, isKatakana } from 'wanakana';
 
 import { addFilterTerm, listFilterTerms, removeFilterTerm } from '../database/repositories/filterRepository.js';
 import { getOrCreateUser } from '../database/repositories/userRepository.js';
@@ -33,12 +33,38 @@ function normalizeForComparison(text) {
   return hiragana.toLowerCase();
 }
 
+function generateKanaVariants(term) {
+  const variants = new Set([term]);
+  if (!term) {
+    return variants;
+  }
+
+  const trimmed = term.trim();
+  if (!trimmed) {
+    return variants;
+  }
+
+  if (isHiragana(trimmed) || isKatakana(trimmed)) {
+    const hiraganaVariant = toHiragana(trimmed);
+    const katakanaVariant = toKatakana(trimmed);
+    if (hiraganaVariant && hiraganaVariant !== trimmed) {
+      variants.add(hiraganaVariant);
+    }
+    if (katakanaVariant && katakanaVariant !== trimmed) {
+      variants.add(katakanaVariant);
+    }
+  }
+
+  return variants;
+}
+
 export class FilterTermExistsError extends Error {
   constructor(term, existingTerm) {
     super(`Filter term already exists: ${existingTerm ?? term}`);
     this.name = 'FilterTermExistsError';
     this.term = term;
     this.existingTerm = existingTerm ?? term;
+    this.code = 'FILTER_TERM_EXISTS';
   }
 }
 
@@ -83,17 +109,22 @@ export async function addTerm(interaction, term, severity = 1) {
     throw new InvalidFilterTermError();
   }
 
+  const variants = generateKanaVariants(trimmed);
   const normalized = normalizeForComparison(trimmed);
   const existing = await ensureTerms(interaction.guildId);
-  const duplicate = existing.get(normalized);
-  if (duplicate) {
-    throw new FilterTermExistsError(trimmed, duplicate.term);
+  for (const variant of variants) {
+    const normalizedVariant = normalizeForComparison(variant);
+    const duplicate = existing.get(normalizedVariant);
+    if (duplicate) {
+      throw new FilterTermExistsError(trimmed, duplicate.term);
+    }
   }
 
   const user = await getOrCreateUser(interaction.user);
 
   try {
     await addFilterTerm(interaction.guildId, trimmed, severity, user.id);
+    existing.set(normalized, { term: trimmed, severity, createdById: user.id });
   } catch (error) {
     if (error?.code === 'P2002') {
       const refreshed = await ensureTerms(interaction.guildId);
@@ -101,6 +132,21 @@ export async function addTerm(interaction, term, severity = 1) {
       throw new FilterTermExistsError(trimmed, existingTerm);
     }
     throw error;
+  }
+
+  for (const variant of variants) {
+    if (variant === trimmed) continue;
+    const variantNormalized = normalizeForComparison(variant);
+    if (existing.has(variantNormalized)) continue;
+    try {
+      await addFilterTerm(interaction.guildId, variant, severity, user.id);
+      existing.set(variantNormalized, { term: variant, severity, createdById: user.id });
+    } catch (error) {
+      if (error?.code === 'P2002') {
+        continue;
+      }
+      throw error;
+    }
   }
 
   await loadTerms(interaction.guildId);

@@ -28,11 +28,16 @@ export default {
         await interaction.reply({ content: '⚠️ 禁止用語は1文字以上で入力してください。', ephemeral: true });
         return;
       }
-      if (error instanceof FilterTermExistsError) {
+      if (
+        error instanceof FilterTermExistsError ||
+        error?.code === 'FILTER_TERM_EXISTS' ||
+        error?.name === 'FilterTermExistsError'
+      ) {
         const { term, existingTerm } = error;
-        const message = existingTerm && existingTerm !== term
-          ? `⚠️ 禁止用語 "${term}" は既に "${existingTerm}" として登録されています。`
-          : `⚠️ 禁止用語 "${term}" はすでに登録されています。`;
+        const normalizedTerm = typeof term === 'string' ? term : interaction.options.getString('term', true);
+        const message = existingTerm && existingTerm !== normalizedTerm
+          ? `⚠️ 禁止用語 "${normalizedTerm}" は既に "${existingTerm}" として登録されています。`
+          : `⚠️ 禁止用語 "${normalizedTerm}" はすでに登録されています。`;
         await interaction.reply({ content: message, ephemeral: true });
         return;
       }
