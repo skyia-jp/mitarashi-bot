@@ -1,5 +1,5 @@
 import { PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
-import { addTerm } from '../../services/filterService.js';
+import { addTerm, FilterTermExistsError, InvalidFilterTermError } from '../../services/filterService.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -20,7 +20,19 @@ export default {
   async execute(client, interaction) {
     const term = interaction.options.getString('term', true);
     const severity = interaction.options.getInteger('severity') ?? 1;
-    await addTerm(interaction, term, severity);
-    await interaction.reply({ content: `🚫 禁止用語 \\"${term}\\" を追加しました。`, ephemeral: true });
+    try {
+      const normalized = await addTerm(interaction, term, severity);
+      await interaction.reply({ content: `🚫 禁止用語 "${normalized}" を追加しました。`, ephemeral: true });
+    } catch (error) {
+      if (error instanceof InvalidFilterTermError) {
+        await interaction.reply({ content: '⚠️ 禁止用語は1文字以上で入力してください。', ephemeral: true });
+        return;
+      }
+      if (error instanceof FilterTermExistsError) {
+        await interaction.reply({ content: `⚠️ 禁止用語 "${error.term}" はすでに登録されています。`, ephemeral: true });
+        return;
+      }
+      throw error;
+    }
   }
 };
