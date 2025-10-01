@@ -48,7 +48,31 @@
    npm run dev
    ```
 
-## 🧩 主なスクリプト
+## 🪵 ロギング
+
+このプロジェクトでは [`@unipro-tech/node-logger`](https://github.com/UniPro-tech/node-logger) を利用し、環境に応じて出力先を自動で切り替えています。
+
+| 環境 | デフォルト出力 | 追加設定 |
+| --- | --- | --- |
+| `NODE_ENV=development` | `pino-pretty` で整形したログ | - |
+| `NODE_ENV=production` | 構造化 JSON を標準出力へ | `LOG_FILE_PATH` or `LOG_DISCORD_WEBHOOK_URL` を指定するとファイル／Discord にも送信 |
+
+### 主な環境変数
+
+| 変数 | 説明 | 例 |
+| --- | --- | --- |
+| `LOG_LEVEL` | ログレベルを上書きします（未設定ならライブラリのデフォルト: 本番`info`/開発`trace`）。 | `LOG_LEVEL=debug` |
+| `LOGGER_NAME` | ログの `service` フィールドに使用する名前。 | `LOGGER_NAME=mitarashi-bot-staging` |
+| `LOG_FILE_PATH` | 指定時、本番環境でこのパスにファイル出力を追加。 | `LOG_FILE_PATH=/var/log/mitarashi.log` |
+| `LOG_DISCORD_WEBHOOK_URL` | Discord Webhook にJSONログを送信。設定しない限り無効。 | `LOG_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...` |
+| `LOG_DISCORD_LEVEL` | Discordへ送るログレベルを個別に指定。 | `LOG_DISCORD_LEVEL=error` |
+
+### 使い方のヒント
+
+- コンテキスト付きロガーが必要な場合は `createLogger` ヘルパー（`src/utils/logger.js`）を使って `trace_id` や `user_id` などを付けられます。
+- Discord Webhook を使う場合は、上記の環境変数を Secret/SealedSecret に追加してデプロイしてください。
+
+## �🧩 主なスクリプト
 
 | コマンド | 説明 |
 | --- | --- |
