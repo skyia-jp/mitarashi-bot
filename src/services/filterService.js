@@ -112,6 +112,9 @@ export async function addTerm(interaction, term, severity = 1) {
   const variants = generateKanaVariants(trimmed);
   const normalized = normalizeForComparison(trimmed);
   const existing = await ensureTerms(interaction.guildId);
+  const existingTerms = new Set(
+    Array.from(existing.values(), (entry) => entry.term).filter(Boolean)
+  );
   for (const variant of variants) {
     const normalizedVariant = normalizeForComparison(variant);
     const duplicate = existing.get(normalizedVariant);
@@ -124,7 +127,10 @@ export async function addTerm(interaction, term, severity = 1) {
 
   try {
     await addFilterTerm(interaction.guildId, trimmed, severity, user.id);
-    existing.set(normalized, { term: trimmed, severity, createdById: user.id });
+    existingTerms.add(trimmed);
+    if (!existing.has(normalized)) {
+      existing.set(normalized, { term: trimmed, severity, createdById: user.id });
+    }
   } catch (error) {
     if (error?.code === 'P2002') {
       const refreshed = await ensureTerms(interaction.guildId);
@@ -137,12 +143,16 @@ export async function addTerm(interaction, term, severity = 1) {
   for (const variant of variants) {
     if (variant === trimmed) continue;
     const variantNormalized = normalizeForComparison(variant);
-    if (existing.has(variantNormalized)) continue;
+    if (existingTerms.has(variant)) continue;
     try {
       await addFilterTerm(interaction.guildId, variant, severity, user.id);
-      existing.set(variantNormalized, { term: variant, severity, createdById: user.id });
+      existingTerms.add(variant);
+      if (!existing.has(variantNormalized)) {
+        existing.set(variantNormalized, { term: variant, severity, createdById: user.id });
+      }
     } catch (error) {
       if (error?.code === 'P2002') {
+        existingTerms.add(variant);
         continue;
       }
       throw error;

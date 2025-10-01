@@ -31,6 +31,7 @@ export default {
       if (
         error instanceof FilterTermExistsError ||
         error?.code === 'FILTER_TERM_EXISTS' ||
+        error?.code === 'P2002' ||
         error?.name === 'FilterTermExistsError'
       ) {
         const { term, existingTerm } = error;
