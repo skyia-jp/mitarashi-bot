@@ -1,5 +1,5 @@
 # Discord Utility Bot
-多機能な Discord Bot プロジェクトです。リマインダー、ロールセレクター、メッセージピン留め、用語規制、モデレーションなどの機能を備えています。音声関連機能（VoiceVox 連携など）は後続フェーズで実装します。
+多機能な Discord Bot プロジェクトです。リマインダー、ロールセレクター、メッセージピン留め、モデレーションなどの機能を備えています。音声関連機能（VoiceVox 連携など）は後続フェーズで実装します。
 
 ## ✨ 機能ハイライト
 
@@ -134,7 +134,7 @@ scripts/
 | `/server stats` | ギルドのメンバー統計とアクティビティ概要を表示します。 |
 | `/server config view` / `/server config set` | 自動ロールやログチャンネル、タイムゾーン設定を管理します。 |
 | `/job activity enable` / `disable` / `configure` / `status` | アクティビティサマリーの自動配信を制御します。 |
-| `/rolemenu`、`/filter` など既存の管理系コマンドも継続利用できます。 |
+| `/rolemenu` など既存の管理系コマンドも継続利用できます。 |
 
 > Slash Command を新規追加・更新した際は `npm run deploy:commands` を実行して Discord に反映してください。
 

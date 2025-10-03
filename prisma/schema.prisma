@@ -16,7 +16,6 @@ model Guild {
   config        GuildConfig?
   reminders     Reminder[]
   roleMenus     RoleMenu[]
-  filterTerms   FilterTerm[]
   warnings      Warning[]
   moderationLog ModerationAction[]
   pinnedMessages PinnedMessage[]
@@ -54,7 +53,6 @@ model User {
   moderationActions    ModerationAction[]  @relation("ActionTarget")
   issuedActions        ModerationAction[]  @relation("ActionModerator")
   createdRoleMenus     RoleMenu[]          @relation("RoleMenuCreatedBy")
-  createdFilterTerms   FilterTerm[]        @relation("FilterTermCreatedBy")
   pinnedMessages       PinnedMessage[]     @relation("PinnedByUser")
   tickets              Ticket[]            @relation("TicketOwner")
   pollsCreated        Poll[]               @relation("PollCreatedBy")
@@ -120,19 +118,6 @@ model RoleMenuOption {
   roleMenu    RoleMenu @relation(fields: [roleMenuId], references: [id])
 
   @@unique([roleMenuId, roleId])
-}
-
-model FilterTerm {
-  id          Int      @id @default(autoincrement())
-  guildId     String
-  term        String
-  severity    Int      @default(1)
-  createdById Int?
-  createdAt   DateTime @default(now())
-  guild       Guild    @relation(fields: [guildId], references: [id])
-  createdBy   User?    @relation("FilterTermCreatedBy", fields: [createdById], references: [id])
-
-  @@unique([guildId, term])
 }
 
 model Warning {
