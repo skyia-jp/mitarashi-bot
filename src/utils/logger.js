@@ -1,24 +1,23 @@
-import nodeLogger from '@unipro-tech/node-logger/dist/cjs/index.cjs';
-
-const { Logger: LoggerFactory, Transporter } = nodeLogger;
+import { randomUUID } from 'node:crypto';
+import { Logger, Transporter } from './nodeLogger/index.js';
 
 const serviceName = process.env.LOGGER_NAME || 'mitarashi-bot';
 const runtimeEnv = process.env.NODE_ENV || 'development';
-const logLevel = process.env.LOG_LEVEL;
+const configuredLevel = process.env.LOG_LEVEL;
 const logFilePath = process.env.LOG_FILE_PATH;
 const discordWebhookUrl = process.env.LOG_DISCORD_WEBHOOK_URL;
 const discordLogLevel = process.env.LOG_DISCORD_LEVEL;
 
-const transports = [];
+const targets = [];
 
 if (runtimeEnv === 'production') {
-  transports.push(Transporter.ConsoleTransporter({ destination: 1 }));
+  targets.push(Transporter.ConsoleTransporter({ destination: 1 }));
 
   if (logFilePath) {
-    transports.push(Transporter.FileTransporter(logFilePath));
+    targets.push(Transporter.FileTransporter(logFilePath));
   }
 } else {
-  transports.push(
+  targets.push(
     Transporter.PinoPrettyTransporter({
       translateTime: 'SYS:standard',
       singleLine: false,
@@ -28,24 +27,36 @@ if (runtimeEnv === 'production') {
 }
 
 if (discordWebhookUrl) {
-  transports.push(
-    Transporter.DiscordTransporter(discordWebhookUrl, undefined, discordLogLevel)
+  targets.push(
+    Transporter.DiscordTransporter(
+      discordWebhookUrl,
+      {},
+      discordLogLevel
+    )
   );
 }
 
-const loggerFactory = new LoggerFactory(
+const logger = Logger(
   serviceName,
-  transports,
-  {},
-  logLevel
+  targets,
+  configuredLevel,
+  {
+    base: {
+      environment: runtimeEnv
+    }
+  }
 );
 
-/**
- * Get contextual logger instance with trace/request ids.
- * @param {import('@unipro-tech/node-logger').LogContext} [context]
- * @param {Record<string, any>} [extraContext]
- */
-export const createLogger = (context, extraContext) =>
-  loggerFactory.getLogger(context, extraContext);
+export const createLogger = (context = {}, extraContext) => {
+  const traceId = context.trace_id ?? randomUUID();
+  const requestId = context.request_id ?? randomUUID();
+  const childContext = { ...context, trace_id: traceId, request_id: requestId };
 
-export default loggerFactory.baseLogger;
+  if (extraContext && Object.keys(extraContext).length > 0) {
+    childContext.context = extraContext;
+  }
+
+  return logger.child(childContext);
+};
+
+export default logger;
