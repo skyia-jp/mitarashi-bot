@@ -26,14 +26,14 @@ if (runtimeEnv === 'production') {
   );
 }
 
-if (discordWebhookUrl) {
-  targets.push(
-    Transporter.DiscordTransporter(
-      discordWebhookUrl,
-      {},
-      discordLogLevel
-    )
-  );
+const discordTarget = Transporter.DiscordTransporter(
+  discordWebhookUrl,
+  {},
+  discordLogLevel
+);
+
+if (discordTarget) {
+  targets.push(discordTarget);
 }
 
 const logger = Logger(

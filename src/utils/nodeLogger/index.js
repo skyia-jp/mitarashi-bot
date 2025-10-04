@@ -75,14 +75,17 @@ export const Transporter = {
   },
 
   DiscordTransporter(webhookUrl, options = {}, level) {
-    if (!webhookUrl) {
-      throw new Error('DiscordTransporter requires a webhook URL.');
+    const trimmed = typeof webhookUrl === 'string' ? webhookUrl.trim() : webhookUrl;
+
+    if (!trimmed) {
+      return null;
     }
 
     return buildTransportTarget(
       'pino-discord-webhook',
       {
-        webhookUrl,
+        webhookUrl: trimmed,
+        webhookURL: trimmed,
         ...options
       },
       level
