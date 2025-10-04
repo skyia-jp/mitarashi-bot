@@ -1,4 +1,6 @@
-import { Logger as LoggerFactory, Transporter } from '@unipro-tech/node-logger';
+import nodeLogger from '@unipro-tech/node-logger/dist/cjs/index.cjs';
+
+const { Logger: LoggerFactory, Transporter } = nodeLogger;
 
 const serviceName = process.env.LOGGER_NAME || 'mitarashi-bot';
 const runtimeEnv = process.env.NODE_ENV || 'development';
