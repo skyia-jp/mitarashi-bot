@@ -62,6 +62,8 @@ model User {
   tasksAssigned       Task[]               @relation("TaskAssignee")
   activityRecords     ActivityRecord[]     @relation("ActivityUser")
   gameBiases          GameBias[]
+  currencyBalance     CurrencyBalance?
+  currencyTransactions CurrencyTransaction[]
 }
 
 model GuildUser {
@@ -287,4 +289,40 @@ model GameBias {
   user      User     @relation(fields: [userId], references: [id])
 
   @@unique([guildId, userId, gameType])
+}
+
+model CurrencyBalance {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  balance   Int      @default(0)
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+  transactions CurrencyTransaction[]
+}
+
+model CurrencyTransaction {
+  id           Int                       @id @default(autoincrement())
+  userId       Int
+  balanceId    Int?
+  type         CurrencyTransactionType
+  amount       Int
+  balanceAfter Int
+  reason       String?
+  metadata     Json?
+  createdAt    DateTime                  @default(now())
+  user         User                      @relation(fields: [userId], references: [id])
+  balance      CurrencyBalance?          @relation(fields: [balanceId], references: [id])
+
+  @@index([userId, type, createdAt])
+}
+
+enum CurrencyTransactionType {
+  EARN
+  SPEND
+  TRANSFER_IN
+  TRANSFER_OUT
+  ADJUST
+  GAME_BET
+  GAME_WIN
+  DAILY_BONUS
 }

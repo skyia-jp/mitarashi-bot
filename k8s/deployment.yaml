@@ -6,7 +6,7 @@ metadata:
   labels:
     app: mitarashi-bot
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: mitarashi-bot

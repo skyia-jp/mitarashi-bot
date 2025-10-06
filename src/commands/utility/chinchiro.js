@@ -1,5 +1,25 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { prepareGameBias, recordGameOutcome } from '../../services/gameBiasService.js';
+import {
+  CurrencyError,
+  credit,
+  getBalance,
+  placeBet,
+  payoutWin,
+  TRANSACTION_TYPES
+} from '../../services/currencyService.js';
+
+const intl = new Intl.NumberFormat('ja-JP');
+
+function formatCoins(amount) {
+  return `${intl.format(amount)} MITACoin`;
+}
+
+function formatDelta(amount) {
+  if (amount > 0) return `+${intl.format(amount)} MITACoin`;
+  if (amount < 0) return `-${intl.format(Math.abs(amount))} MITACoin`;
+  return '±0 MITACoin';
+}
 
 const DICE_EMOJI = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 
@@ -157,24 +177,94 @@ function buildEmbed(attempts, outcome, winRate) {
 export default {
   data: new SlashCommandBuilder()
     .setName('chinchiro')
-    .setDescription('チンチロリンでボットと勝負！'),
+    .setDescription('チンチロリンでボットと勝負！')
+    .addIntegerOption((option) =>
+      option
+        .setName('bet')
+        .setDescription('賭ける MITACoin の額 (任意)')
+        .setMinValue(1)
+    ),
   async execute(client, interaction) {
     await interaction.deferReply();
-    const bias = await prepareGameBias(interaction, 'chinchiro');
 
-    const attempts = [];
-    let game = simulateGame();
-    attempts.push(game);
+    const betAmount = interaction.options.getInteger('bet') ?? 0;
+    let betPlaced = false;
+    let netChange = 0;
 
-    if (game.outcome === 'dealer' && bias.rerollChance > 0 && Math.random() < bias.rerollChance) {
-      const retry = simulateGame();
-      attempts.push(retry);
-      game = retry;
+    try {
+      if (betAmount > 0) {
+        await placeBet(interaction.user, betAmount, {
+          game: 'chinchiro',
+          interactionId: interaction.id
+        });
+        betPlaced = true;
+      }
+
+      const bias = await prepareGameBias(interaction, 'chinchiro');
+
+      const attempts = [];
+      let game = simulateGame();
+      attempts.push(game);
+
+      if (game.outcome === 'dealer' && bias.rerollChance > 0 && Math.random() < bias.rerollChance) {
+        const retry = simulateGame();
+        attempts.push(retry);
+        game = retry;
+      }
+
+      await recordGameOutcome(interaction, 'chinchiro', bias.userRecord, game.outcome);
+
+      if (betPlaced) {
+        if (game.outcome === 'player') {
+          const payout = betAmount * 2;
+          await payoutWin(interaction.user, payout, {
+            game: 'chinchiro',
+            interactionId: interaction.id,
+            originalBet: betAmount
+          });
+          netChange = betAmount;
+        } else if (game.outcome === 'draw') {
+          await credit(interaction.user, betAmount, {
+            type: TRANSACTION_TYPES.ADJUST,
+            reason: 'チンチロ引き分け返金',
+            metadata: { game: 'chinchiro', interactionId: interaction.id }
+          });
+          netChange = 0;
+        } else {
+          netChange = -betAmount;
+        }
+      }
+
+      const embed = buildEmbed(attempts, game.outcome, bias.winRate);
+
+      if (betPlaced) {
+        const { balance } = await getBalance(interaction.user);
+        const summary = `ベット: ${formatCoins(betAmount)} | 収支: ${formatDelta(netChange)} | 残高: ${formatCoins(balance.balance)}`;
+        embed.footer.text = `${embed.footer.text} | ${summary}`;
+      }
+
+      await interaction.editReply({ embeds: [embed] });
+    } catch (error) {
+      if (betPlaced && netChange === 0 && !(error instanceof CurrencyError)) {
+        await credit(interaction.user, betAmount, {
+          type: TRANSACTION_TYPES.ADJUST,
+          reason: 'システムエラー返金',
+          metadata: { game: 'chinchiro', interactionId: interaction.id }
+        }).catch(() => null);
+      }
+
+      if (error instanceof CurrencyError) {
+        if (error.code === 'INSUFFICIENT_FUNDS') {
+          await interaction.editReply({
+            content: `💸 残高が不足しています。（必要: ${formatCoins(error.context.required ?? betAmount)}）`
+          });
+          return;
+        }
+        await interaction.editReply({ content: `⚠️ エラー: ${error.message}` });
+        return;
+      }
+
+      throw error;
     }
-
-    await recordGameOutcome(interaction, 'chinchiro', bias.userRecord, game.outcome);
-
-    const embed = buildEmbed(attempts, game.outcome, bias.winRate);
-    await interaction.editReply({ embeds: [embed] });
   }
 };
