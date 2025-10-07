@@ -37,6 +37,10 @@ model GuildConfig {
   timezone       String?  @default("Asia/Tokyo")
   reminderRoleId String?
   autoRoleId     String?
+  passwordAuthRoleId       String?
+  passwordAuthSecretHash   String?
+  passwordAuthHint         String?
+  passwordAuthUpdatedAt    DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   guild          Guild    @relation(fields: [guildId], references: [id])
