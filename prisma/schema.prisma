@@ -46,6 +46,19 @@ model GuildConfig {
   guild          Guild    @relation(fields: [guildId], references: [id])
 }
 
+model PasswordReveal {
+  id          Int      @id @default(autoincrement())
+  customId    String   @unique
+  guildId     String
+  channelId   String
+  createdById String
+  password    String
+  title       String?
+  description String?
+  buttonLabel String?
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime?
+}
 model User {
   id                   Int                 @id @default(autoincrement())
   discordId            String              @unique

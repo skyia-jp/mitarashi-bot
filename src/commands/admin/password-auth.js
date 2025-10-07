@@ -1,10 +1,19 @@
-import { PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ChannelType,
+  EmbedBuilder,
+  PermissionFlagsBits,
+  SlashCommandBuilder
+} from 'discord.js';
 import {
   buildPasswordAuthStatus,
   clearPasswordAuthConfig,
   getPasswordAuthConfig,
   setPasswordAuthConfig
 } from '../../services/passwordAuthService.js';
+import { registerPasswordReveal } from '../../services/passwordRevealService.js';
 
 function buildStatusEmbed(config, guild) {
   const status = buildPasswordAuthStatus(config);
@@ -101,7 +110,44 @@ export default {
     .addSubcommand((sub) =>
       sub.setName('clear').setDescription('パスワード認証によるロール付与設定を解除します')
     )
-    .addSubcommand((sub) => sub.setName('status').setDescription('現在の設定を表示します')),
+    .addSubcommand((sub) => sub.setName('status').setDescription('現在の設定を表示します'))
+    .addSubcommand((sub) =>
+      sub
+        .setName('announce')
+        .setDescription('パスワード表示ボタン付きの埋め込みを送信します')
+        .addStringOption((option) =>
+          option
+            .setName('password')
+            .setDescription('表示するパスワード')
+            .setRequired(true)
+            .setMinLength(4)
+            .setMaxLength(128)
+        )
+        .addChannelOption((option) =>
+          option
+            .setName('channel')
+            .setDescription('埋め込みを送信するチャンネル (未指定時は現在のチャンネル)')
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+        )
+        .addStringOption((option) =>
+          option
+            .setName('title')
+            .setDescription('埋め込みタイトル (既定値: パスワード認証のご案内)')
+            .setMaxLength(150)
+        )
+        .addStringOption((option) =>
+          option
+            .setName('description')
+            .setDescription('埋め込み本文')
+            .setMaxLength(1000)
+        )
+        .addStringOption((option) =>
+          option
+            .setName('button_label')
+            .setDescription('ボタンに表示するテキスト (既定値: パスワードを表示)')
+            .setMaxLength(80)
+        )
+    ),
   async execute(client, interaction) {
     const subcommand = interaction.options.getSubcommand();
 
@@ -145,6 +191,59 @@ export default {
 
       await interaction.editReply({
         content: `パスワード認証を設定しました。正しいパスワードを入力したユーザーに ${role} を付与します。`
+      });
+      return;
+    }
+
+    if (subcommand === 'announce') {
+      const password = interaction.options.getString('password', true);
+      const channel = interaction.options.getChannel('channel') ?? interaction.channel;
+      const embedTitle = interaction.options.getString('title') ?? '🔐 パスワード認証のご案内';
+      const embedDescription =
+        interaction.options.getString('description') ??
+        '下のボタンを押すとパスワードが表示されます。参加前にルールを確認してください。';
+      const buttonLabel = interaction.options.getString('button_label') ?? 'パスワードを表示';
+
+      if (!channel || ![ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type)) {
+        await interaction.editReply({ content: 'テキストチャンネルまたはアナウンスチャンネルを指定してください。' });
+        return;
+      }
+
+      const { customId } = await registerPasswordReveal({
+        guildId: interaction.guildId,
+        channelId: channel.id,
+        createdById: interaction.user.id,
+        password,
+        title: embedTitle,
+        description: embedDescription,
+        buttonLabel
+      });
+
+      const embed = new EmbedBuilder()
+        .setTitle(embedTitle)
+        .setDescription(embedDescription)
+        .setColor(0x3498db)
+        .setFooter({ text: `設定者: ${interaction.user.tag}` })
+        .setTimestamp(new Date());
+
+      const button = new ButtonBuilder()
+        .setCustomId(customId)
+        .setLabel(buttonLabel)
+        .setStyle(ButtonStyle.Primary);
+
+      const row = new ActionRowBuilder().addComponents(button);
+
+      try {
+        await channel.send({ embeds: [embed], components: [row] });
+      } catch (error) {
+        await interaction.editReply({ content: `メッセージ送信に失敗しました: ${error.message}` });
+        return;
+      }
+
+      await interaction.editReply({
+        content: channel.id === interaction.channelId
+          ? '埋め込みを送信しました。'
+          : `<#${channel.id}> に埋め込みを送信しました。`
       });
     }
   }

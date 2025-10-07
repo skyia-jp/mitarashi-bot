@@ -12,6 +12,8 @@ function buildInteractionLogger(interaction, overrides = {}, meta = {}) {
       ? 'button'
       : interaction.isStringSelectMenu()
       ? 'string_select'
+      : interaction.isModalSubmit()
+      ? 'modal_submit'
       : interaction.type,
     user_id: interaction.user?.id,
     guild_id: interaction.guildId ?? 'dm',
@@ -88,7 +90,7 @@ export default {
       return;
     }
 
-    if (interaction.isStringSelectMenu() || interaction.isButton()) {
+    if (interaction.isStringSelectMenu() || interaction.isButton() || interaction.isModalSubmit()) {
       let handler = client.componentHandlers.get(interaction.customId);
 
       let dynamicKey;
