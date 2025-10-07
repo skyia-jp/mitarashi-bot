@@ -1,6 +1,6 @@
 {
   "name": "discord-utility-bot",
-  "version": "0.1.0",
+  "version": "1.2.0",
   "description": "Multi-functional Discord bot with reminders, role selectors, and moderation.",
   "main": "src/index.js",
   "type": "module",
