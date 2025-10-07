@@ -68,7 +68,6 @@
 | `LOG_FILE_PATH` | 指定時、本番環境でこのパスにファイル出力を追加。 | `LOG_FILE_PATH=/var/log/mitarashi.log` |
 | `LOG_DISCORD_WEBHOOK_URL` | Discord Webhook に JSON ログを送信。設定しない限り無効。 | `LOG_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...` |
 | `LOG_DISCORD_LEVEL` | Discord へ送るログレベルを個別に指定。 | `LOG_DISCORD_LEVEL=error` |
-| `PASSWORD_REVEAL_TTL_MS` | `/password-auth announce` のボタンで表示するパスワードの有効期限（ミリ秒）。設定しない場合は 24 時間。 | `PASSWORD_REVEAL_TTL_MS=43200000` |
 
 ### 使い方のヒント
 
@@ -145,14 +144,11 @@ scripts/
 パスワード認証の流れ:
 
 1. 管理者が `/password-auth set` でパスワード・付与ロール・ヒント（任意）を登録します。
-2. 参加者は `/password` コマンドを実行し、共有されたパスワードを入力します。
-3. 正しいパスワードの場合は Bot がロールを付与し、誤りの場合はヒント（設定時のみ）を表示します。
-
-さらに、管理者は `/password-auth announce` で指定したチャンネルに案内用の埋め込みを送信できます。埋め込みのボタンを押すとモーダルが開き、パスワードが表示されるため、参加手順をガイドしながら安全に共有可能です。
+2. 管理者は `/password-auth announce` で指定したチャンネルに案内用の埋め込みを送信できます。ボタンを押すとモーダルが表示され、メンバーがパスワードを入力するとロールが自動付与されます。
+3. `/password` コマンドを使った従来の入力方法も併用できます。
+4. 正しいパスワードの場合は Bot がロールを付与し、誤りの場合はヒント（設定時のみ）を表示します。
 
 > パスワードはハッシュ化して保存されるため、Bot のログやデータベースには平文で残りません。
-> `/password-auth announce` で送信したボタンはデータベースに保存されるため、Bot を再起動しても有効です。一定時間後に無効化したい場合は `PASSWORD_REVEAL_TTL_MS` を設定してください（既定値は 24 時間）。
-
 > Slash Command を新規追加・更新した際は `npm run deploy:commands` を実行して Discord に反映してください。
 
 グローバルコマンドとギルド限定コマンドの配信先は以下の環境変数で切り替えられます。

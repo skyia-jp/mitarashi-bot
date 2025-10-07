@@ -52,12 +52,18 @@ model PasswordReveal {
   guildId     String
   channelId   String
   createdById String
-  password    String
+  password    String?
   title       String?
   description String?
   buttonLabel String?
   createdAt   DateTime @default(now())
   expiresAt   DateTime?
+  mode        PasswordPanelMode @default(DISPLAY)
+}
+
+enum PasswordPanelMode {
+  DISPLAY
+  INPUT
 }
 model User {
   id                   Int                 @id @default(autoincrement())

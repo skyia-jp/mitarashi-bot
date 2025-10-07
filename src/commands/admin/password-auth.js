@@ -13,7 +13,6 @@ import {
   getPasswordAuthConfig,
   setPasswordAuthConfig
 } from '../../services/passwordAuthService.js';
-import { registerPasswordReveal } from '../../services/passwordRevealService.js';
 
 function buildStatusEmbed(config, guild) {
   const status = buildPasswordAuthStatus(config);
@@ -114,15 +113,7 @@ export default {
     .addSubcommand((sub) =>
       sub
         .setName('announce')
-        .setDescription('パスワード表示ボタン付きの埋め込みを送信します')
-        .addStringOption((option) =>
-          option
-            .setName('password')
-            .setDescription('表示するパスワード')
-            .setRequired(true)
-            .setMinLength(4)
-            .setMaxLength(128)
-        )
+        .setDescription('パスワード入力モーダル付きの埋め込みを送信します')
         .addChannelOption((option) =>
           option
             .setName('channel')
@@ -144,7 +135,7 @@ export default {
         .addStringOption((option) =>
           option
             .setName('button_label')
-            .setDescription('ボタンに表示するテキスト (既定値: パスワードを表示)')
+            .setDescription('ボタンに表示するテキスト (既定値: パスワードを入力)')
             .setMaxLength(80)
         )
     ),
@@ -196,28 +187,19 @@ export default {
     }
 
     if (subcommand === 'announce') {
-      const password = interaction.options.getString('password', true);
       const channel = interaction.options.getChannel('channel') ?? interaction.channel;
       const embedTitle = interaction.options.getString('title') ?? '🔐 パスワード認証のご案内';
       const embedDescription =
         interaction.options.getString('description') ??
-        '下のボタンを押すとパスワードが表示されます。参加前にルールを確認してください。';
-      const buttonLabel = interaction.options.getString('button_label') ?? 'パスワードを表示';
+        '下のボタンを押してパスワードを入力すると、ロールが付与されます。参加前にルールを確認してください。';
+      const buttonLabel =
+        interaction.options.getString('button_label') ??
+        'パスワードを入力';
 
       if (!channel || ![ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type)) {
         await interaction.editReply({ content: 'テキストチャンネルまたはアナウンスチャンネルを指定してください。' });
         return;
       }
-
-      const { customId } = await registerPasswordReveal({
-        guildId: interaction.guildId,
-        channelId: channel.id,
-        createdById: interaction.user.id,
-        password,
-        title: embedTitle,
-        description: embedDescription,
-        buttonLabel
-      });
 
       const embed = new EmbedBuilder()
         .setTitle(embedTitle)
@@ -225,9 +207,8 @@ export default {
         .setColor(0x3498db)
         .setFooter({ text: `設定者: ${interaction.user.tag}` })
         .setTimestamp(new Date());
-
       const button = new ButtonBuilder()
-        .setCustomId(customId)
+        .setCustomId('pwd_reveal')
         .setLabel(buttonLabel)
         .setStyle(ButtonStyle.Primary);
 

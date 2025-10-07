@@ -1,33 +1,20 @@
-import { getPasswordReveal } from '../../services/passwordRevealService.js';
+import { handlePasswordSubmission } from '../../services/passwordGrantService.js';
 
-const MODAL_BASE_ID = 'pwd_reveal_modal';
-
-function resolveButtonCustomId(modalCustomId) {
-  const [, identifier] = modalCustomId.split(':');
-  return identifier ? `pwd_reveal:${identifier}` : modalCustomId.replace(MODAL_BASE_ID, 'pwd_reveal');
-}
+const MODAL_CUSTOM_ID = 'pwd_reveal_modal';
 
 export default {
-  customId: MODAL_BASE_ID,
+  customId: MODAL_CUSTOM_ID,
   async execute(client, interaction) {
-    const originalCustomId = resolveButtonCustomId(interaction.customId);
-    const entry = await getPasswordReveal(originalCustomId);
+    const submittedValue = interaction.fields.getTextInputValue('password')?.trim();
 
-    if (!entry) {
-      await interaction.reply({
-        content: 'パスワード情報の取得に失敗しました。管理者に再送信を依頼してください。',
-        ephemeral: true
-      });
+    if (!submittedValue) {
+      await interaction.reply({ content: 'パスワードを入力してください。', ephemeral: true });
       return;
     }
 
-    const submittedValue = interaction.fields.getTextInputValue('password');
-    const displayedPassword = submittedValue || entry.password;
+    const member = interaction.member ?? (await interaction.guild.members.fetch(interaction.user.id));
+    const result = await handlePasswordSubmission(interaction.guild, member, submittedValue);
 
-    await interaction.reply({
-      content: `パスワードは \`${displayedPassword}\` です。安全に取り扱ってください。` +
-        (entry.description ? `\n\n> ${entry.description}` : ''),
-      ephemeral: true
-    });
+    await interaction.reply({ content: result.message, ephemeral: true });
   }
 };
