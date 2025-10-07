@@ -1,9 +1,12 @@
+import { request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
 import { EmbedBuilder, ApplicationCommandOptionType } from 'discord.js';
 import { createLogger } from './logger.js';
 
 const auditLogger = createLogger({ module: 'discord-audit' });
 
 const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID?.trim() || null;
+const LOG_WEBHOOK_URL = process.env.LOG_DISCORD_WEBHOOK_URL?.trim() || null;
 
 let cachedChannel = null;
 let cachedClientId = null;
@@ -169,22 +172,110 @@ function buildCommandEmbed(interaction, status, { durationMs, error, subcommandG
   return embed;
 }
 
+function postJson(urlString, payload) {
+  return new Promise((resolve, reject) => {
+    try {
+      const url = new URL(urlString);
+      const body = JSON.stringify(payload);
+      const isHttps = url.protocol === 'https:';
+      const requester = isHttps ? httpsRequest : httpRequest;
+
+      const req = requester(
+        {
+          hostname: url.hostname,
+          port: url.port || (isHttps ? 443 : 80),
+          path: `${url.pathname}${url.search}`,
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(body)
+          }
+        },
+        (res) => {
+          const chunks = [];
+          res.on('data', (chunk) => chunks.push(chunk));
+          res.on('end', () => {
+            resolve({
+              statusCode: res.statusCode ?? 0,
+              statusMessage: res.statusMessage ?? '',
+              body: Buffer.concat(chunks).toString()
+            });
+          });
+        }
+      );
+
+      req.on('error', reject);
+      req.write(body);
+      req.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+async function sendEmbedToWebhook(embedJson, status) {
+  if (!LOG_WEBHOOK_URL) {
+    return false;
+  }
+
+  try {
+    const response = await postJson(LOG_WEBHOOK_URL, {
+      username: 'Mitarashi Logger',
+      embeds: [embedJson],
+      allowed_mentions: {
+        parse: []
+      },
+      ...(status === 'failure'
+        ? {
+            content: '❌ Slash command failed'
+          }
+        : {})
+    });
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      auditLogger.warn(
+        { statusCode: response.statusCode, statusText: response.statusMessage },
+        'Failed to post interaction audit to Discord webhook'
+      );
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    auditLogger.warn({ err: error }, 'Failed to post interaction audit to Discord webhook');
+    return false;
+  }
+}
+
 export async function recordSlashCommandOutcome(interaction, result) {
   if (!interaction?.client) {
     return;
   }
 
+  const embed = buildCommandEmbed(interaction, result.status, result);
+  const embedJson = embed.toJSON();
+
+  const destinations = [];
+
   const channel = await resolveLogChannel(interaction.client);
-  if (!channel) {
+  if (channel) {
+    destinations.push(
+      channel.send({ embeds: [embed] }).catch((error) => {
+        auditLogger.warn({ err: error }, 'Failed to send interaction audit log to channel');
+      })
+    );
+  }
+
+  if (LOG_WEBHOOK_URL) {
+    destinations.push(sendEmbedToWebhook(embedJson, result.status));
+  }
+
+  if (!destinations.length) {
+    auditLogger.debug('No audit log destination configured');
     return;
   }
 
-  try {
-    const embed = buildCommandEmbed(interaction, result.status, result);
-    await channel.send({ embeds: [embed] });
-  } catch (error) {
-    auditLogger.warn({ err: error }, 'Failed to send interaction audit log');
-  }
+  await Promise.allSettled(destinations);
 }
 
 export default {
