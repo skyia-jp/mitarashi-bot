@@ -140,6 +140,13 @@ scripts/
 
 > Slash Command を新規追加・更新した際は `npm run deploy:commands` を実行して Discord に反映してください。
 
+グローバルコマンドとギルド限定コマンドの配信先は以下の環境変数で切り替えられます。
+
+| 環境変数 | 既定値 | 説明 |
+| --- | --- | --- |
+| `DEPLOY_GLOBAL` | `true` | `true` の場合は全ワークスペースにグローバル登録します。`false` にするとグローバルコマンドを削除します。 |
+| `DEPLOY_GUILD` | `false` | `true` にすると `DISCORD_GUILD_ID` で指定したギルドへローカルコマンドを同期します。テスト用途でのみ有効化してください。 |
+
 ## �📦 Docker
 
 ローカル開発用の Dockerfile と docker-compose.yml を用意しています。MySQL コンテナと Bot コンテナをまとめて起動できます。

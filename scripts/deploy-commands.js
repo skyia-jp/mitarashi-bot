@@ -84,8 +84,10 @@ async function main() {
   const rest = new REST({ version: '10' }).setToken(token);
 
   try {
-    const deployGlobalEnv = process.env.DEPLOY_GLOBAL ?? (guildId ? 'false' : 'true');
+    const deployGlobalEnv = process.env.DEPLOY_GLOBAL ?? 'true';
     const shouldDeployGlobal = deployGlobalEnv.toLowerCase() === 'true';
+    const deployGuildEnv = process.env.DEPLOY_GUILD ?? 'false';
+    const shouldDeployGuild = Boolean(guildId) && deployGuildEnv.toLowerCase() === 'true';
 
     if (shouldDeployGlobal) {
       await syncScope(rest, Routes.applicationCommands(clientId), 'グローバル', commands);
@@ -93,10 +95,18 @@ async function main() {
       await syncScope(rest, Routes.applicationCommands(clientId), 'グローバル', null);
     }
 
-    if (guildId) {
+    if (shouldDeployGuild) {
       await syncScope(rest, Routes.applicationGuildCommands(clientId, guildId), 'ギルド', commands, {
         guildId
       });
+    } else if (guildId) {
+      logger.info(
+        {
+          guildId,
+          deployGuildEnv
+        },
+        '環境設定によりギルドコマンドの同期をスキップしました'
+      );
     } else {
       logger.info('DISCORD_GUILD_ID が設定されていないため、ギルドコマンドの同期はスキップしました');
     }
