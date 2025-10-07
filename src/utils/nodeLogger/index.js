@@ -95,6 +95,26 @@ export const Transporter = {
 
 const defaultTimestamp = () => `,"time":"${new Date().toISOString()}"`;
 
+const defaultErrorSerializer = (error) => {
+  if (!error) return undefined;
+
+  const plainObject = {
+    type: error.name,
+    message: error.message,
+    stack: error.stack,
+    code: error.code,
+    details: error.details
+  };
+
+  for (const key of Object.keys(error)) {
+    if (!(key in plainObject)) {
+      plainObject[key] = error[key];
+    }
+  }
+
+  return plainObject;
+};
+
 const mergeFormatters = (formatters = {}) => {
   const { level, ...rest } = formatters;
 
@@ -128,6 +148,7 @@ export const Logger = (name, transportTargets = [], level, options = {}) => {
     formatters,
     timestamp,
     genReqId,
+    serializers,
     ...restOptions
   } = options;
 
@@ -142,6 +163,11 @@ export const Logger = (name, transportTargets = [], level, options = {}) => {
     timestamp: timestamp ?? defaultTimestamp,
     formatters: mergeFormatters(formatters),
     genReqId: genReqId ?? (() => randomUUID()),
+    serializers: {
+      err: defaultErrorSerializer,
+      error: defaultErrorSerializer,
+      ...serializers
+    },
     ...restOptions,
     base: finalBase
   };
