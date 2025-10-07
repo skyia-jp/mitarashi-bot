@@ -1,4 +1,5 @@
 import { createLogger } from '../../utils/logger.js';
+import { recordSlashCommandOutcome } from '../../utils/interactionAudit.js';
 
 function buildInteractionLogger(interaction, overrides = {}, meta = {}) {
   const base = {
@@ -37,6 +38,13 @@ export default {
           { reason: 'missing_command' }
         );
         missingLogger.warn('Received unknown slash command');
+        await recordSlashCommandOutcome(interaction, {
+          status: 'warning',
+          durationMs: 0,
+          subcommand_group: null,
+          subcommand: null,
+          error: 'Missing slash command handler'
+        });
         return;
       }
 
@@ -55,6 +63,12 @@ export default {
         await command.execute(client, interaction);
         const successDurationMs = Date.now() - startedAt;
         commandLogger.info({ durationMs: successDurationMs }, 'Slash command executed successfully');
+        await recordSlashCommandOutcome(interaction, {
+          status: 'success',
+          durationMs: successDurationMs,
+          subcommandGroup,
+          subcommand
+        });
       } catch (error) {
         const failureDurationMs = Date.now() - startedAt;
         commandLogger.error({ err: error, durationMs: failureDurationMs }, 'Slash command execution failed');
@@ -63,6 +77,13 @@ export default {
         } else {
           await interaction.reply({ content: 'コマンド実行中にエラーが発生しました。', ephemeral: true });
         }
+        await recordSlashCommandOutcome(interaction, {
+          status: 'failure',
+          durationMs: failureDurationMs,
+          subcommandGroup,
+          subcommand,
+          error
+        });
       }
       return;
     }
