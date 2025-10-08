@@ -13,7 +13,7 @@ spec:
           image: kemar1/mitarashi-bot:latest
           command: ["sh", "-c"]
           args:
-            - npx prisma migrate resolve --applied 20250101000000_init &&
+            - npx prisma migrate resolve --applied 20250101000000_init || true &&
               npx prisma migrate deploy
           env:
             - name: DATABASE_URL
