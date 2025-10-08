@@ -27,7 +27,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@prisma/client": "^5.16.1",
+  "@prisma/client": "^6.17.0",
     "@unipro-tech/node-logger": "^1.0.0",
     "dayjs": "^1.11.11",
     "discord.js": "^14.14.1",
