@@ -41,6 +41,13 @@ spec:
         - name: bot
           image: kemar1/mitarashi-bot:latest
           imagePullPolicy: Always
+          command:
+            - sh
+            - -c
+            - >-
+              npx prisma generate &&
+              npx prisma migrate deploy &&
+              npm start
           envFrom:
             - secretRef:
                 name: mitarashi-bot
