@@ -10,6 +10,7 @@ import {
 } from 'discord.js';
 import prisma from '../../database/client.js';
 import logger from '../../utils/logger.js';
+import { CurrencyError, debit } from '../../services/currencyService.js';
 
 export const SHOP_SELECT_ID = 'shop_select';
 export const SHOP_CONFIRM_ID = 'shop_confirm';
@@ -273,21 +274,13 @@ export async function handleShopConfirm(interaction, sessionId) {
       return;
     }
 
-    const currency = await prisma.userCurrency.findFirst({
-      where: {
-        guild_id: guildId,
-        user_id: interaction.user.id
+    const purchase = await debit(guildId, interaction.user, item.price, {
+      reason: `ショップ購入: ${item.name}`,
+      metadata: {
+        itemId: item.id,
+        sessionId,
+        interactionId: interaction.id
       }
-    });
-
-    if (!currency || currency.balance < item.price) {
-      await interaction.reply({ content: '所持金が不足しています。', ephemeral: true });
-      return;
-    }
-
-    await prisma.userCurrency.update({
-      where: { id: currency.id },
-      data: { balance: currency.balance - item.price }
     });
 
     if (item.roleId && interaction.guild) {
@@ -313,10 +306,22 @@ export async function handleShopConfirm(interaction, sessionId) {
     }
 
     clearSession(sessionId);
-    await interaction.reply({ content: '購入が完了しました！', ephemeral: true });
+    const remaining = purchase?.balance?.balance;
+    const balanceText = Number.isFinite(remaining) ? ` 残高: ${formatPrice(remaining)}` : '';
+    await interaction.reply({ content: `購入が完了しました！${balanceText}`, ephemeral: true });
   } catch (error) {
+    if (error instanceof CurrencyError) {
+      if (error.code === 'INSUFFICIENT_FUNDS') {
+        await interaction.reply({ content: '所持金が不足しています。', ephemeral: true }).catch(() => null);
+        return;
+      }
+
+      await interaction.reply({ content: `購入に失敗しました: ${error.message}`, ephemeral: true }).catch(() => null);
+      return;
+    }
+
     logger.error({ err: error, guildId, sessionId }, 'Failed to confirm shop purchase');
-    await interaction.reply({ content: '購入処理中にエラーが発生しました。', ephemeral: true });
+    await interaction.reply({ content: '購入処理中にエラーが発生しました。', ephemeral: true }).catch(() => null);
   }
 }
 
