@@ -29,6 +29,7 @@ model Guild {
   gameBiases    GameBias[]
   currencyBalances CurrencyBalance[]
   currencyTransactions CurrencyTransaction[]
+  shopItems     ShopItem[]
 }
 
 model GuildConfig {
@@ -357,4 +358,19 @@ enum CurrencyTransactionType {
   GAME_BET
   GAME_WIN
   DAILY_BONUS
+}
+
+model ShopItem {
+  id          String   @id
+  guildId     String
+  name        String
+  description String?
+  price       Int
+  roleId      String?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  guild       Guild    @relation(fields: [guildId], references: [id])
+
+  @@index([guildId])
 }

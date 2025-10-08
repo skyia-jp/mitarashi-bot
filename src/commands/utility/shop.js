@@ -93,12 +93,12 @@ async function handleAdd(interaction) {
   await prisma.shopItem.create({
     data: {
       id,
-      guild_id: guildId,
+      guildId,
       name,
       description,
       price,
-      role_id: role ? role.id : null,
-      created_by: interaction.user.id
+      roleId: role ? role.id : null,
+      createdBy: interaction.user.id
     }
   });
 
@@ -134,7 +134,7 @@ async function handleAnnounce(interaction) {
   }
 
   const items = await prisma.shopItem.findMany({
-    where: { guild_id: guildId },
+    where: { guildId },
     orderBy: [{ name: 'asc' }, { price: 'asc' }]
   });
 
@@ -180,7 +180,7 @@ async function handleSelect(interaction) {
   await interaction.deferReply({ ephemeral: true });
 
   const item = await prisma.shopItem.findFirst({
-    where: { id: selectedId, guild_id: guildId }
+    where: { id: selectedId, guildId }
   });
 
   if (!item) {
@@ -250,7 +250,7 @@ async function handleConfirm(interaction, sessionId) {
 
   try {
     const item = await prisma.shopItem.findFirst({
-      where: { id: session.itemId, guild_id: guildId }
+      where: { id: session.itemId, guildId }
     });
 
     if (!item) {
@@ -276,13 +276,13 @@ async function handleConfirm(interaction, sessionId) {
       data: { balance: currency.balance - item.price }
     });
 
-    if (item.role_id && interaction.guild) {
-      let role = interaction.guild.roles.cache.get(item.role_id);
+    if (item.roleId && interaction.guild) {
+      let role = interaction.guild.roles.cache.get(item.roleId);
       if (!role) {
         try {
-          role = await interaction.guild.roles.fetch(item.role_id);
+          role = await interaction.guild.roles.fetch(item.roleId);
         } catch (error) {
-          logger.error({ err: error, guildId, roleId: item.role_id }, 'Failed to fetch role for shop purchase');
+          logger.error({ err: error, guildId, roleId: item.roleId }, 'Failed to fetch role for shop purchase');
         }
       }
 
@@ -293,7 +293,7 @@ async function handleConfirm(interaction, sessionId) {
             await member.roles.add(role);
           }
         } catch (error) {
-          logger.error({ err: error, guildId, roleId: item.role_id, userId: interaction.user.id }, 'Failed to assign role for shop purchase');
+          logger.error({ err: error, guildId, roleId: item.roleId, userId: interaction.user.id }, 'Failed to assign role for shop purchase');
         }
       }
     }
