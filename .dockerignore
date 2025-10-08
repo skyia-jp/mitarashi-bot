@@ -1,0 +1,18 @@
+# Exclude development artifacts to keep the build context light
+node_modules
+npm-debug.log
+Dockerfile*
+.dockerignore
+.git
+.gitignore
+.vscode
+.env
+.env.*
+.cache
+coverage
+dist
+build
+logs
+*.log
+**/*.sqlite
+prisma/migrations/*/*.sqlite
