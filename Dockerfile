@@ -12,7 +12,5 @@ COPY . .
 
 RUN npx prisma generate
 
-RUN npm run deploy:commands
-
 ENV NODE_ENV=production
-CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]
+CMD ["sh", "-c", "npx prisma generate && npx prisma migrate deploy && npm run deploy:commands && npm start"]

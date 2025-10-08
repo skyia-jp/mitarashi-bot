@@ -47,6 +47,7 @@ spec:
             - >-
               npx prisma generate &&
               npx prisma migrate deploy &&
+              npm run deploy:commands &&
               npm start
           envFrom:
             - secretRef:
