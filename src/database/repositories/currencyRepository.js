@@ -4,17 +4,29 @@ function getClient(transaction) {
   return transaction ?? prisma;
 }
 
-export function findBalanceByUserId(userId, transaction) {
+export function findBalanceByGuildAndUser(guildId, userId, transaction) {
   const client = getClient(transaction);
-  return client.currencyBalance.findUnique({ where: { userId } });
+  return client.currencyBalance.findUnique({
+    where: {
+      guildId_userId: {
+        guildId,
+        userId
+      }
+    }
+  });
 }
 
-export function upsertBalance(userId, transaction) {
+export function upsertBalance(guildId, userId, transaction) {
   const client = getClient(transaction);
   return client.currencyBalance.upsert({
-    where: { userId },
+    where: {
+      guildId_userId: {
+        guildId,
+        userId
+      }
+    },
     update: {},
-    create: { userId }
+    create: { guildId, userId }
   });
 }
 
@@ -31,10 +43,10 @@ export function createTransaction(data, transaction) {
   return client.currencyTransaction.create({ data });
 }
 
-export function findLatestTransactionByType(userId, type, transaction) {
+export function findLatestTransactionByType(guildId, userId, type, transaction) {
   const client = getClient(transaction);
   return client.currencyTransaction.findFirst({
-    where: { userId, type },
+    where: { guildId, userId, type },
     orderBy: { createdAt: 'desc' }
   });
 }

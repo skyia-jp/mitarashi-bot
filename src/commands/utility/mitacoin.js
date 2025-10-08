@@ -129,13 +129,13 @@ export default {
       switch (subcommand) {
         case 'balance': {
           const target = interaction.options.getUser('user') ?? interaction.user;
-          const { balance } = await getBalance(target);
+          const { balance } = await getBalance(interaction.guild, target);
           const embed = buildBalanceEmbed(target, balance);
           await interaction.editReply({ embeds: [embed] });
           break;
         }
         case 'daily': {
-          const { reward, balance, nextClaimAt } = await claimDaily(interaction.user);
+          const { reward, balance, nextClaimAt } = await claimDaily(interaction.guild, interaction.user);
           await interaction.editReply({
             content: `🎁 デイリーボーナスとして **${formatCoins(reward)}** を受け取りました！次回は <t:${Math.floor(nextClaimAt.getTime() / 1000)}:R> に受け取れます。現在の残高: ${formatCoins(balance.balance)}`
           });
@@ -146,7 +146,7 @@ export default {
           const amount = interaction.options.getInteger('amount', true);
           const reason = interaction.options.getString('reason') ?? undefined;
 
-          const result = await transfer(interaction.user, targetUser, amount, {
+          const result = await transfer(interaction.guild, interaction.user, targetUser, amount, {
             reason,
             metadata: { method: 'command' }
           });
@@ -166,7 +166,7 @@ export default {
           const amount = interaction.options.getInteger('amount', true);
           const reason = interaction.options.getString('reason') ?? '管理者付与';
 
-          const { balance } = await credit(targetUser, amount, {
+          const { balance } = await credit(interaction.guild, targetUser, amount, {
             type: TRANSACTION_TYPES.ADJUST,
             reason,
             metadata: { by: interaction.user.id }
@@ -181,7 +181,7 @@ export default {
           const amount = interaction.options.getInteger('amount', true);
           const reason = interaction.options.getString('reason') ?? '自己消費';
 
-          const { balance } = await debit(interaction.user, amount, {
+          const { balance } = await debit(interaction.guild, interaction.user, amount, {
             reason,
             metadata: { method: 'command' }
           });

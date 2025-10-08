@@ -316,15 +316,21 @@ model GameBias {
 
 model CurrencyBalance {
   id        Int      @id @default(autoincrement())
-  userId    Int      @unique
+  guildId   String
+  userId    Int
   balance   Int      @default(0)
   updatedAt DateTime @updatedAt
+  guild     Guild    @relation(fields: [guildId], references: [id])
   user      User     @relation(fields: [userId], references: [id])
   transactions CurrencyTransaction[]
+
+  @@unique([guildId, userId])
+  @@index([guildId])
 }
 
 model CurrencyTransaction {
   id           Int                       @id @default(autoincrement())
+  guildId      String
   userId       Int
   balanceId    Int?
   type         CurrencyTransactionType
@@ -333,10 +339,11 @@ model CurrencyTransaction {
   reason       String?
   metadata     Json?
   createdAt    DateTime                  @default(now())
+  guild        Guild                     @relation(fields: [guildId], references: [id])
   user         User                      @relation(fields: [userId], references: [id])
   balance      CurrencyBalance?          @relation(fields: [balanceId], references: [id])
 
-  @@index([userId, type, createdAt])
+  @@index([guildId, userId, type, createdAt])
 }
 
 enum CurrencyTransactionType {

@@ -193,7 +193,7 @@ export default {
 
     try {
       if (betAmount > 0) {
-        await placeBet(interaction.user, betAmount, {
+        await placeBet(interaction.guild, interaction.user, betAmount, {
           game: 'chinchiro',
           interactionId: interaction.id
         });
@@ -217,14 +217,14 @@ export default {
       if (betPlaced) {
         if (game.outcome === 'player') {
           const payout = betAmount * 2;
-          await payoutWin(interaction.user, payout, {
+          await payoutWin(interaction.guild, interaction.user, payout, {
             game: 'chinchiro',
             interactionId: interaction.id,
             originalBet: betAmount
           });
           netChange = betAmount;
         } else if (game.outcome === 'draw') {
-          await credit(interaction.user, betAmount, {
+          await credit(interaction.guild, interaction.user, betAmount, {
             type: TRANSACTION_TYPES.ADJUST,
             reason: 'チンチロ引き分け返金',
             metadata: { game: 'chinchiro', interactionId: interaction.id }
@@ -238,7 +238,7 @@ export default {
       const embed = buildEmbed(attempts, game.outcome, bias.winRate);
 
       if (betPlaced) {
-        const { balance } = await getBalance(interaction.user);
+        const { balance } = await getBalance(interaction.guild, interaction.user);
         const summary = `ベット: ${formatCoins(betAmount)} | 収支: ${formatDelta(netChange)} | 残高: ${formatCoins(balance.balance)}`;
         embed.footer.text = `${embed.footer.text} | ${summary}`;
       }
@@ -246,7 +246,7 @@ export default {
       await interaction.editReply({ embeds: [embed] });
     } catch (error) {
       if (betPlaced && netChange === 0 && !(error instanceof CurrencyError)) {
-        await credit(interaction.user, betAmount, {
+        await credit(interaction.guild, interaction.user, betAmount, {
           type: TRANSACTION_TYPES.ADJUST,
           reason: 'システムエラー返金',
           metadata: { game: 'chinchiro', interactionId: interaction.id }

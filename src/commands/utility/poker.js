@@ -79,7 +79,7 @@ export default {
 
     try {
       if (betAmount > 0) {
-        await placeBet(interaction.user, betAmount, {
+        await placeBet(interaction.guild, interaction.user, betAmount, {
           game: 'poker',
           interactionId: interaction.id
         });
@@ -140,14 +140,14 @@ export default {
       if (betPlaced) {
         if (game.result === 'player') {
           const payout = betAmount * 2;
-          await payoutWin(interaction.user, payout, {
+          await payoutWin(interaction.guild, interaction.user, payout, {
             game: 'poker',
             interactionId: interaction.id,
             originalBet: betAmount
           });
           netChange = betAmount;
         } else if (game.result === 'draw') {
-          await credit(interaction.user, betAmount, {
+          await credit(interaction.guild, interaction.user, betAmount, {
             type: TRANSACTION_TYPES.ADJUST,
             reason: 'ポーカー引き分け返金',
             metadata: {
@@ -160,7 +160,7 @@ export default {
           netChange = -betAmount;
         }
 
-        const { balance } = await getBalance(interaction.user);
+        const { balance } = await getBalance(interaction.guild, interaction.user);
         const summary = `ベット: ${formatCoins(betAmount)} | 収支: ${formatDelta(netChange)} | 残高: ${formatCoins(balance.balance)}`;
         embed.footer.text = `${embed.footer.text} | ${summary}`;
       }
@@ -169,7 +169,7 @@ export default {
     } catch (error) {
       if (betPlaced && netChange === 0 && !(error instanceof CurrencyError)) {
         // In case of unexpected error after placing the bet, refund to avoid loss.
-        await credit(interaction.user, betAmount, {
+        await credit(interaction.guild, interaction.user, betAmount, {
           type: TRANSACTION_TYPES.ADJUST,
           reason: 'システムエラー返金',
           metadata: { game: 'poker', interactionId: interaction.id }

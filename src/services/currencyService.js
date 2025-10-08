@@ -1,6 +1,12 @@
 import { randomInt } from 'node:crypto';
 import prisma from '../database/client.js';
-import { createTransaction, findBalanceByUserId, findLatestTransactionByType, updateBalanceById, upsertBalance } from '../database/repositories/currencyRepository.js';
+import {
+  createTransaction,
+  findBalanceByGuildAndUser,
+  findLatestTransactionByType,
+  updateBalanceById,
+  upsertBalance
+} from '../database/repositories/currencyRepository.js';
 import { getOrCreateUser } from '../database/repositories/userRepository.js';
 
 export const TRANSACTION_TYPES = {
@@ -27,28 +33,70 @@ export class CurrencyError extends Error {
   }
 }
 
+function resolveGuildContext(guild) {
+  if (typeof guild === 'string') {
+    return { id: guild, name: null };
+  }
+
+  if (guild && typeof guild === 'object') {
+    if (typeof guild.id === 'string') {
+      return { id: guild.id, name: guild.name ?? null };
+    }
+
+    if (typeof guild.guildId === 'string') {
+      return { id: guild.guildId, name: guild.guild?.name ?? null };
+    }
+  }
+
+  throw new CurrencyError('MISSING_GUILD', 'ギルド情報が必要です。');
+}
+
+async function ensureGuildRecord(guild, transaction) {
+  const client = transaction ?? prisma;
+  const context = resolveGuildContext(guild);
+
+  const existing = await client.guild.findUnique({ where: { id: context.id } });
+
+  if (!existing) {
+    await client.guild.create({
+      data: {
+        id: context.id,
+        name: context.name
+      }
+    });
+  } else if (context.name && existing.name !== context.name) {
+    await client.guild.update({
+      where: { id: context.id },
+      data: { name: context.name }
+    });
+  }
+
+  return context;
+}
+
 function assertPositiveAmount(amount) {
   if (!Number.isFinite(amount) || amount <= 0) {
     throw new CurrencyError('INVALID_AMOUNT', '金額は正の数で指定してください。', { amount });
   }
 }
 
-async function getOrCreateBalance(userId, transaction) {
-  const balance = await findBalanceByUserId(userId, transaction);
+async function getOrCreateBalance(guildId, userId, transaction) {
+  const balance = await findBalanceByGuildAndUser(guildId, userId, transaction);
   if (balance) {
     return balance;
   }
-  return upsertBalance(userId, transaction);
+  return upsertBalance(guildId, userId, transaction);
 }
 
-async function adjustBalance(discordUser, delta, type, { reason, metadata } = {}) {
+async function adjustBalance(guild, discordUser, delta, type, { reason, metadata } = {}) {
   if (!Number.isFinite(delta) || delta === 0) {
-    return getBalance(discordUser);
+    return getBalance(guild, discordUser);
   }
 
   return prisma.$transaction(async (tx) => {
+    const guildContext = await ensureGuildRecord(guild, tx);
     const userRecord = await getOrCreateUser(discordUser, tx);
-    const balance = await getOrCreateBalance(userRecord.id, tx);
+    const balance = await getOrCreateBalance(guildContext.id, userRecord.id, tx);
     const nextBalance = balance.balance + delta;
 
     if (nextBalance < 0) {
@@ -61,6 +109,7 @@ async function adjustBalance(discordUser, delta, type, { reason, metadata } = {}
     const updated = await updateBalanceById(balance.id, nextBalance, tx);
     await createTransaction(
       {
+        guildId: guildContext.id,
         userId: userRecord.id,
         balanceId: updated.id,
         type,
@@ -72,29 +121,30 @@ async function adjustBalance(discordUser, delta, type, { reason, metadata } = {}
       tx
     );
 
-    return { user: userRecord, balance: updated };
+    return { guildId: guildContext.id, user: userRecord, balance: updated };
   });
 }
 
-export async function getBalance(discordUser) {
+export async function getBalance(guild, discordUser) {
+  const guildContext = await ensureGuildRecord(guild);
   const userRecord = await getOrCreateUser(discordUser);
-  const balance = await getOrCreateBalance(userRecord.id);
-  return { user: userRecord, balance };
+  const balance = await getOrCreateBalance(guildContext.id, userRecord.id);
+  return { guildId: guildContext.id, user: userRecord, balance };
 }
 
-export async function credit(discordUser, amount, options = {}) {
+export async function credit(guild, discordUser, amount, options = {}) {
   assertPositiveAmount(amount);
   const { type = TRANSACTION_TYPES.EARN } = options;
-  return adjustBalance(discordUser, amount, type, options);
+  return adjustBalance(guild, discordUser, amount, type, options);
 }
 
-export async function debit(discordUser, amount, options = {}) {
+export async function debit(guild, discordUser, amount, options = {}) {
   assertPositiveAmount(amount);
   const { type = TRANSACTION_TYPES.SPEND } = options;
-  return adjustBalance(discordUser, -amount, type, options);
+  return adjustBalance(guild, discordUser, -amount, type, options);
 }
 
-export async function transfer(fromUser, toUser, amount, { reason, metadata } = {}) {
+export async function transfer(guild, fromUser, toUser, amount, { reason, metadata } = {}) {
   assertPositiveAmount(amount);
 
   if (fromUser.id === toUser.id) {
@@ -102,10 +152,11 @@ export async function transfer(fromUser, toUser, amount, { reason, metadata } = 
   }
 
   return prisma.$transaction(async (tx) => {
+    const guildContext = await ensureGuildRecord(guild, tx);
     const sender = await getOrCreateUser(fromUser, tx);
     const recipient = await getOrCreateUser(toUser, tx);
 
-    const senderBalance = await getOrCreateBalance(sender.id, tx);
+    const senderBalance = await getOrCreateBalance(guildContext.id, sender.id, tx);
     if (senderBalance.balance < amount) {
       throw new CurrencyError('INSUFFICIENT_FUNDS', '残高が不足しています。', {
         current: senderBalance.balance,
@@ -116,6 +167,7 @@ export async function transfer(fromUser, toUser, amount, { reason, metadata } = 
     const updatedSender = await updateBalanceById(senderBalance.id, senderBalance.balance - amount, tx);
     await createTransaction(
       {
+        guildId: guildContext.id,
         userId: sender.id,
         balanceId: updatedSender.id,
         type: TRANSACTION_TYPES.TRANSFER_OUT,
@@ -130,10 +182,11 @@ export async function transfer(fromUser, toUser, amount, { reason, metadata } = 
       tx
     );
 
-    const recipientBalance = await getOrCreateBalance(recipient.id, tx);
+    const recipientBalance = await getOrCreateBalance(guildContext.id, recipient.id, tx);
     const updatedRecipient = await updateBalanceById(recipientBalance.id, recipientBalance.balance + amount, tx);
     await createTransaction(
       {
+        guildId: guildContext.id,
         userId: recipient.id,
         balanceId: updatedRecipient.id,
         type: TRANSACTION_TYPES.TRANSFER_IN,
@@ -155,12 +208,14 @@ export async function transfer(fromUser, toUser, amount, { reason, metadata } = 
   });
 }
 
-export async function claimDaily(discordUser) {
+export async function claimDaily(guild, discordUser) {
   const now = new Date();
 
   return prisma.$transaction(async (tx) => {
+    const guildContext = await ensureGuildRecord(guild, tx);
     const userRecord = await getOrCreateUser(discordUser, tx);
     const lastClaim = await findLatestTransactionByType(
+      guildContext.id,
       userRecord.id,
       TRANSACTION_TYPES.DAILY_BONUS,
       tx
@@ -177,11 +232,12 @@ export async function claimDaily(discordUser) {
     }
 
     const reward = DAILY_MIN_REWARD + randomInt(DAILY_MAX_REWARD - DAILY_MIN_REWARD + 1);
-    const balance = await getOrCreateBalance(userRecord.id, tx);
+    const balance = await getOrCreateBalance(guildContext.id, userRecord.id, tx);
     const updated = await updateBalanceById(balance.id, balance.balance + reward, tx);
 
     await createTransaction(
       {
+        guildId: guildContext.id,
         userId: userRecord.id,
         balanceId: updated.id,
         type: TRANSACTION_TYPES.DAILY_BONUS,
@@ -208,27 +264,27 @@ export function getCooldownInfo(error) {
   return null;
 }
 
-export async function placeBet(discordUser, amount, metadata) {
-  return debit(discordUser, amount, {
+export async function placeBet(guild, discordUser, amount, metadata) {
+  return debit(guild, discordUser, amount, {
     type: TRANSACTION_TYPES.GAME_BET,
     reason: 'ゲームのベット',
     metadata
   });
 }
 
-export async function payoutWin(discordUser, amount, metadata) {
-  return credit(discordUser, amount, {
+export async function payoutWin(guild, discordUser, amount, metadata) {
+  return credit(guild, discordUser, amount, {
     type: TRANSACTION_TYPES.GAME_WIN,
     reason: 'ゲーム勝利報酬',
     metadata
   });
 }
 
-export async function adjustBalanceManually(discordUser, amount, { reason, metadata } = {}) {
+export async function adjustBalanceManually(guild, discordUser, amount, { reason, metadata } = {}) {
   if (!Number.isFinite(amount) || amount === 0) {
     throw new CurrencyError('INVALID_AMOUNT', '調整額は0ではない値を指定してください。', { amount });
   }
 
   const type = TRANSACTION_TYPES.ADJUST;
-  return adjustBalance(discordUser, amount, type, { reason, metadata });
+  return adjustBalance(guild, discordUser, amount, type, { reason, metadata });
 }

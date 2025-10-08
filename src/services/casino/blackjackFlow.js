@@ -26,7 +26,7 @@ export async function settleBlackjackSession(interaction, session) {
 
   if (session.state.result === BlackjackResult.PLAYER_WIN) {
     if (payout > 0) {
-      await payoutWin(interaction.user, payout, {
+      await payoutWin(interaction.guild, interaction.user, payout, {
         game: 'blackjack',
         interactionId: interaction.id,
         sessionId: session.id,
@@ -38,7 +38,7 @@ export async function settleBlackjackSession(interaction, session) {
     }
   } else if (session.state.result === BlackjackResult.PUSH) {
     if (totalBet > 0) {
-      await credit(interaction.user, totalBet, {
+      await credit(interaction.guild, interaction.user, totalBet, {
         type: TRANSACTION_TYPES.ADJUST,
         reason: 'ブラックジャック引き分け返金',
         metadata: {
@@ -58,7 +58,7 @@ export async function settleBlackjackSession(interaction, session) {
     session.wager.settled = true;
   }
 
-  const balance = await getBalance(interaction.user).catch(() => null);
+  const balance = await getBalance(interaction.guild, interaction.user).catch(() => null);
 
   await recordGameOutcome(interaction, 'blackjack', session.bias?.userRecord, resultToOutcome(session.state.result));
 

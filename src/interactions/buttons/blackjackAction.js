@@ -79,7 +79,7 @@ export default {
       }
 
       try {
-        await placeBet(interaction.user, additionalBet, {
+        await placeBet(interaction.guild, interaction.user, additionalBet, {
           game: 'blackjack',
           interactionId: interaction.id,
           reason: 'double-down'
@@ -115,7 +115,7 @@ export default {
       }
     } catch (error) {
       if (action === 'double' && additionalBet > 0) {
-        await credit(interaction.user, additionalBet, {
+        await credit(interaction.guild, interaction.user, additionalBet, {
           type: TRANSACTION_TYPES.ADJUST,
           reason: 'ダブルダウン失敗返金',
           metadata: { game: 'blackjack', interactionId: interaction.id, sessionId }

@@ -67,7 +67,7 @@ export default {
 
     try {
       if (betAmount > 0) {
-        await placeBet(interaction.user, betAmount, {
+        await placeBet(interaction.guild, interaction.user, betAmount, {
           game: 'blackjack',
           interactionId: interaction.id
         });
@@ -118,7 +118,7 @@ export default {
       }
     } catch (error) {
       if (betPlaced) {
-        await credit(interaction.user, betAmount, {
+        await credit(interaction.guild, interaction.user, betAmount, {
           type: TRANSACTION_TYPES.ADJUST,
           reason: 'ブラックジャック初期化エラー返金',
           metadata: { game: 'blackjack', interactionId: interaction.id }
