@@ -11,9 +11,9 @@ import {
 import prisma from '../../database/client.js';
 import logger from '../../utils/logger.js';
 
-const SHOP_SELECT_ID = 'shop_select';
-const SHOP_CONFIRM_ID = 'shop_confirm';
-const SHOP_CANCEL_ID = 'shop_cancel';
+export const SHOP_SELECT_ID = 'shop_select';
+export const SHOP_CONFIRM_ID = 'shop_confirm';
+export const SHOP_CANCEL_ID = 'shop_cancel';
 const SESSION_TTL_MS = 5 * 60 * 1000;
 
 const purchaseSessions = new Map();
@@ -168,7 +168,7 @@ async function handleAnnounce(interaction) {
   await interaction.reply({ content: 'ショップ情報を送信しました。', ephemeral: true });
 }
 
-async function handleSelect(interaction) {
+export async function handleShopSelect(interaction) {
   const guildId = interaction.guildId;
   if (!guildId) {
     await interaction.reply({ content: 'ギルド内でのみ利用できます。', ephemeral: true });
@@ -214,7 +214,7 @@ async function handleSelect(interaction) {
   });
 }
 
-async function handleCancel(interaction, sessionId) {
+export async function handleShopCancel(interaction, sessionId) {
   const session = getSession(sessionId);
   if (!session) {
     await interaction.reply({ content: 'セッションの有効期限が切れています。', ephemeral: true });
@@ -230,7 +230,7 @@ async function handleCancel(interaction, sessionId) {
   await interaction.reply({ content: '購入をキャンセルしました。', ephemeral: true });
 }
 
-async function handleConfirm(interaction, sessionId) {
+export async function handleShopConfirm(interaction, sessionId) {
   const session = getSession(sessionId);
   if (!session) {
     await interaction.reply({ content: 'セッションの有効期限が切れています。', ephemeral: true });
@@ -359,20 +359,20 @@ export default {
     }
 
     if (interaction.isStringSelectMenu() && interaction.customId === SHOP_SELECT_ID) {
-      await handleSelect(interaction);
+      await handleShopSelect(interaction);
       return;
     }
 
     if (interaction.isButton()) {
       if (interaction.customId.startsWith(`${SHOP_CANCEL_ID}:`)) {
         const [, sessionId] = interaction.customId.split(':');
-        await handleCancel(interaction, sessionId);
+        await handleShopCancel(interaction, sessionId);
         return;
       }
 
       if (interaction.customId.startsWith(`${SHOP_CONFIRM_ID}:`)) {
         const [, sessionId] = interaction.customId.split(':');
-        await handleConfirm(interaction, sessionId);
+        await handleShopConfirm(interaction, sessionId);
         return;
       }
     }
