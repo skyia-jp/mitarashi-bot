@@ -7,3 +7,4 @@ resources:
   - mysql-statefulset.yaml
   - mysql-service.yaml
   - sealed/env.yaml
+  - prisma-migrate-once.yaml
