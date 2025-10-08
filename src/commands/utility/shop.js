@@ -15,6 +15,10 @@ import { CurrencyError, debit } from '../../services/currencyService.js';
 export const SHOP_SELECT_ID = 'shop_select';
 export const SHOP_CONFIRM_ID = 'shop_confirm';
 export const SHOP_CANCEL_ID = 'shop_cancel';
+export const SHOP_ITEM_REMOVE_SELECT_ID = 'shop_item_remove';
+export const SHOP_ANNOUNCE_DELETE_SELECT_ID = 'shop_announce_delete';
+const SELECT_NOOP_VALUE = 'noop';
+
 const SESSION_TTL_MS = 5 * 60 * 1000;
 
 const purchaseSessions = new Map();
@@ -77,7 +81,7 @@ function clearSession(sessionId) {
   purchaseSessions.delete(sessionId);
 }
 
-async function handleAdd(interaction) {
+async function handleItemAdd(interaction) {
   const guildId = interaction.guildId;
   if (!guildId) {
     await interaction.reply({ content: 'ギルド内でのみ利用できます。', ephemeral: true });
@@ -106,22 +110,81 @@ async function handleAdd(interaction) {
   await interaction.reply({ content: 'アイテムを追加しました。', ephemeral: true });
 }
 
-function buildSelectMenu(items) {
-  return new StringSelectMenuBuilder()
-    .setCustomId(SHOP_SELECT_ID)
-    .setPlaceholder('購入するアイテムを選択してください')
-    .setMinValues(1)
-    .setMaxValues(1)
-    .addOptions(
-      items.map((item) => ({
-        label: truncate(item.name, 100) ?? item.name,
-        description: truncate(item.description ?? '説明はありません。', 100),
-        value: item.id
-      }))
-    );
+async function handleItemRemove(interaction) {
+  const guildId = interaction.guildId;
+  if (!guildId) {
+    await interaction.reply({ content: 'ギルド内でのみ利用できます。', ephemeral: true });
+    return;
+  }
+
+  const items = await prisma.shopItem.findMany({
+    where: { guildId },
+    orderBy: [{ name: 'asc' }, { price: 'asc' }]
+  });
+
+  if (items.length === 0) {
+    await interaction.reply({ content: '削除可能なアイテムがありません。', ephemeral: true });
+    return;
+  }
+
+  const limitedItems = items.slice(0, 24);
+  const menu = buildSelectMenuWithDefault(
+    SHOP_ITEM_REMOVE_SELECT_ID,
+    '削除するアイテムを選択してください',
+    limitedItems.map((item) => ({
+      label: truncate(item.name, 100) ?? item.name,
+      description: truncate(item.description ?? '説明はありません。', 100),
+      value: item.id
+    }))
+  );
+
+  const components = [new ActionRowBuilder().addComponents(menu)];
+  const extraMessage = items.length > limitedItems.length
+    ? '最新の24件のみ表示しています。それ以外を削除する場合は先に削除してから再度実行してください。'
+    : null;
+
+  await interaction.reply({
+    content: [
+      '削除するアイテムを選択してください。',
+      extraMessage
+    ].filter(Boolean).join('\n'),
+    components,
+    ephemeral: true
+  });
 }
 
-async function handleAnnounce(interaction) {
+function buildSelectMenu(items) {
+  return buildSelectMenuWithDefault(
+    SHOP_SELECT_ID,
+    '購入するアイテムを選択してください',
+    items.map((item) => ({
+      label: truncate(item.name, 100) ?? item.name,
+      description: truncate(item.description ?? '説明はありません。', 100),
+      value: item.id
+    }))
+  );
+}
+
+function buildSelectMenuWithDefault(customId, placeholder, options) {
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId(customId)
+    .setPlaceholder(placeholder)
+    .setMinValues(1)
+    .setMaxValues(1)
+    .addOptions({
+      label: '選択してください',
+      value: SELECT_NOOP_VALUE,
+      description: '操作をキャンセルする場合はこちらを選択してください。'
+    });
+
+  if (options.length > 0) {
+    menu.addOptions(options.slice(0, 24));
+  }
+
+  return menu;
+}
+
+async function handleAnnounceSend(interaction) {
   const guildId = interaction.guildId;
   if (!guildId) {
     await interaction.reply({ content: 'ギルド内でのみ利用できます。', ephemeral: true });
@@ -144,7 +207,7 @@ async function handleAnnounce(interaction) {
     return;
   }
 
-  const pages = chunk(items, 25);
+  const pages = chunk(items, 24);
   const totalPages = pages.length;
 
   for (let index = 0; index < pages.length; index += 1) {
@@ -169,6 +232,69 @@ async function handleAnnounce(interaction) {
   await interaction.reply({ content: 'ショップ情報を送信しました。', ephemeral: true });
 }
 
+async function handleAnnounceDelete(interaction) {
+  const guildId = interaction.guildId;
+  if (!guildId) {
+    await interaction.reply({ content: 'ギルド内でのみ利用できます。', ephemeral: true });
+    return;
+  }
+
+  const targetChannel = interaction.options.getChannel('channel', true);
+  if (!targetChannel.isTextBased()) {
+    await interaction.reply({ content: 'テキストチャンネルを指定してください。', ephemeral: true });
+    return;
+  }
+
+  const permissions = targetChannel.permissionsFor(interaction.client.user);
+  if (!permissions?.has('ViewChannel') || !permissions?.has('ReadMessageHistory')) {
+    await interaction.reply({ content: '指定チャンネルのメッセージ履歴を参照できません。権限を確認してください。', ephemeral: true });
+    return;
+  }
+
+  const fetched = await targetChannel.messages.fetch({ limit: 100 });
+  const candidates = fetched.filter((message) =>
+    message.author?.id === interaction.client.user?.id &&
+    message.embeds.some((embed) => embed?.title === 'ショップ一覧')
+  );
+
+  if (candidates.size === 0) {
+    await interaction.reply({ content: '削除対象のショップ案内メッセージが見つかりませんでした。', ephemeral: true });
+    return;
+  }
+
+  const sorted = Array.from(candidates.values()).sort((a, b) => b.createdTimestamp - a.createdTimestamp);
+  const limited = sorted.slice(0, 24);
+
+  const options = limited.map((message) => {
+    const footer = message.embeds[0]?.footer?.text ?? 'ページ情報なし';
+    const createdAt = message.createdAt ? message.createdAt.toLocaleString('ja-JP', { hour12: false }) : '日時不明';
+    return {
+      label: truncate(`${footer} (${createdAt})`, 100) ?? footer,
+      description: `メッセージID: ${message.id}`,
+      value: `${targetChannel.id}:${message.id}`
+    };
+  });
+
+  const menu = buildSelectMenuWithDefault(
+    SHOP_ANNOUNCE_DELETE_SELECT_ID,
+    '削除するメッセージを選択してください',
+    options
+  );
+
+  const note = sorted.length > limited.length
+    ? '最新の24件のみ表示しています。必要に応じて再実行してください。'
+    : null;
+
+  await interaction.reply({
+    content: [
+      `チャンネル <#${targetChannel.id}> の削除するメッセージを選択してください。`,
+      note
+    ].filter(Boolean).join('\n'),
+    components: [new ActionRowBuilder().addComponents(menu)],
+    ephemeral: true
+  });
+}
+
 export async function handleShopSelect(interaction) {
   const guildId = interaction.guildId;
   if (!guildId) {
@@ -180,6 +306,11 @@ export async function handleShopSelect(interaction) {
     const selectedId = interaction.values?.[0];
     if (!selectedId) {
       await interaction.reply({ content: '選択されたアイテムがありません。', ephemeral: true });
+      return;
+    }
+
+    if (selectedId === SELECT_NOOP_VALUE) {
+      await interaction.deferUpdate().catch(() => null);
       return;
     }
 
@@ -325,61 +456,190 @@ export async function handleShopConfirm(interaction, sessionId) {
   }
 }
 
+export async function handleShopItemRemoveSelect(interaction) {
+  const selectedId = interaction.values?.[0];
+  if (!selectedId || selectedId === SELECT_NOOP_VALUE) {
+    await interaction.deferUpdate().catch(() => null);
+    return;
+  }
+
+  const guildId = interaction.guildId;
+  if (!guildId) {
+    await interaction.reply({ content: 'ギルド内でのみ利用できます。', ephemeral: true }).catch(() => null);
+    return;
+  }
+
+  await interaction.deferUpdate().catch(() => null);
+
+  try {
+    const item = await prisma.shopItem.findFirst({
+      where: { id: selectedId, guildId }
+    });
+
+    if (!item) {
+      await interaction.editReply({ content: '選択したアイテムが見つかりません。', components: [] }).catch(() => null);
+      return;
+    }
+
+    await prisma.shopItem.delete({ where: { id: selectedId } });
+
+    await interaction.editReply({
+      content: `アイテム「${item.name}」を削除しました。`,
+      components: []
+    }).catch(() => null);
+  } catch (error) {
+    logger.error({ err: error, guildId, itemId: selectedId }, 'Failed to remove shop item');
+    await interaction.editReply({ content: 'アイテムの削除に失敗しました。', components: [] }).catch(() => null);
+  }
+}
+
+export async function handleShopAnnounceDeleteSelect(interaction) {
+  const selectedValue = interaction.values?.[0];
+  if (!selectedValue || selectedValue === SELECT_NOOP_VALUE) {
+    await interaction.deferUpdate().catch(() => null);
+    return;
+  }
+
+  const [channelId, messageId] = selectedValue.split(':');
+  if (!channelId || !messageId) {
+    await interaction.deferUpdate().catch(() => null);
+    await interaction.editReply({ content: 'メッセージ情報の解析に失敗しました。', components: [] }).catch(() => null);
+    return;
+  }
+
+  await interaction.deferUpdate().catch(() => null);
+
+  try {
+    const channel = await interaction.client.channels.fetch(channelId);
+    if (!channel?.isTextBased() || channel.guildId !== interaction.guildId) {
+      await interaction.editReply({ content: '対象チャンネルにアクセスできません。', components: [] }).catch(() => null);
+      return;
+    }
+
+    const message = await channel.messages.fetch(messageId).catch(() => null);
+    if (!message) {
+      await interaction.editReply({ content: 'メッセージが既に削除されています。', components: [] }).catch(() => null);
+      return;
+    }
+
+    await message.delete();
+
+    await interaction.editReply({ content: 'ショップ案内メッセージを削除しました。', components: [] }).catch(() => null);
+  } catch (error) {
+    logger.error({ err: error, guildId: interaction.guildId, channelId, messageId }, 'Failed to delete shop announcement');
+    await interaction.editReply({ content: 'メッセージの削除に失敗しました。', components: [] }).catch(() => null);
+  }
+}
+
 export default {
   data: new SlashCommandBuilder()
     .setName('shop')
     .setDescription('ギルド内ショップを管理します。')
     .setDMPermission(false)
-    .addSubcommand((sub) =>
-      sub
-        .setName('add')
-        .setDescription('ショップにアイテムを追加します。')
-        .addStringOption((option) =>
-          option.setName('name').setDescription('アイテム名').setRequired(true)
+    .addSubcommandGroup((group) =>
+      group
+        .setName('item')
+        .setDescription('ショップアイテムを管理します。')
+        .addSubcommand((sub) =>
+          sub
+            .setName('add')
+            .setDescription('ショップにアイテムを追加します。')
+            .addStringOption((option) =>
+              option.setName('name').setDescription('アイテム名').setRequired(true)
+            )
+            .addIntegerOption((option) =>
+              option.setName('price').setDescription('価格').setRequired(true).setMinValue(1)
+            )
+            .addStringOption((option) =>
+              option.setName('description').setDescription('説明')
+            )
+            .addRoleOption((option) =>
+              option.setName('role').setDescription('購入時に付与するロール')
+            )
         )
-        .addIntegerOption((option) =>
-          option.setName('price').setDescription('価格').setRequired(true).setMinValue(1)
-        )
-        .addStringOption((option) =>
-          option.setName('description').setDescription('説明')
-        )
-        .addRoleOption((option) =>
-          option.setName('role').setDescription('購入時に付与するロール')
+        .addSubcommand((sub) =>
+          sub
+            .setName('remove')
+            .setDescription('ショップアイテムを削除します。')
         )
     )
-    .addSubcommand((sub) =>
-      sub
+    .addSubcommandGroup((group) =>
+      group
         .setName('announce')
-        .setDescription('ショップの一覧を案内します。')
-        .addChannelOption((option) =>
-          option
-            .setName('channel')
-            .setDescription('送信先チャンネル')
-            .setRequired(true)
-            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+        .setDescription('ショップ案内メッセージを管理します。')
+        .addSubcommand((sub) =>
+          sub
+            .setName('send')
+            .setDescription('ショップの一覧を案内します。')
+            .addChannelOption((option) =>
+              option
+                .setName('channel')
+                .setDescription('送信先チャンネル')
+                .setRequired(true)
+                .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+            )
+        )
+        .addSubcommand((sub) =>
+          sub
+            .setName('delete')
+            .setDescription('ショップ案内メッセージを削除します。')
+            .addChannelOption((option) =>
+              option
+                .setName('channel')
+                .setDescription('対象チャンネル')
+                .setRequired(true)
+                .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+            )
         )
     ),
   async execute(client, interaction) {
     if (interaction.isChatInputCommand() && interaction.commandName === 'shop') {
+      const subcommandGroup = interaction.options.getSubcommandGroup(false);
       const subcommand = interaction.options.getSubcommand();
 
-      if (subcommand === 'add') {
-        await handleAdd(interaction);
-        return;
+      if (subcommandGroup === 'item') {
+        if (subcommand === 'add') {
+          await handleItemAdd(interaction);
+          return;
+        }
+
+        if (subcommand === 'remove') {
+          await handleItemRemove(interaction);
+          return;
+        }
       }
 
-      if (subcommand === 'announce') {
-        await handleAnnounce(interaction);
-        return;
+      if (subcommandGroup === 'announce') {
+        if (subcommand === 'send') {
+          await handleAnnounceSend(interaction);
+          return;
+        }
+
+        if (subcommand === 'delete') {
+          await handleAnnounceDelete(interaction);
+          return;
+        }
       }
 
       await interaction.reply({ content: '不明なサブコマンドです。', ephemeral: true });
       return;
     }
 
-    if (interaction.isStringSelectMenu() && interaction.customId === SHOP_SELECT_ID) {
-      await handleShopSelect(interaction);
-      return;
+    if (interaction.isStringSelectMenu()) {
+      if (interaction.customId === SHOP_SELECT_ID) {
+        await handleShopSelect(interaction);
+        return;
+      }
+
+      if (interaction.customId === SHOP_ITEM_REMOVE_SELECT_ID) {
+        await handleShopItemRemoveSelect(interaction);
+        return;
+      }
+
+      if (interaction.customId === SHOP_ANNOUNCE_DELETE_SELECT_ID) {
+        await handleShopAnnounceDeleteSelect(interaction);
+        return;
+      }
     }
 
     if (interaction.isButton()) {
