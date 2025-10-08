@@ -175,43 +175,57 @@ export async function handleShopSelect(interaction) {
     return;
   }
 
-  const selectedId = interaction.values[0];
+  try {
+    const selectedId = interaction.values?.[0];
+    if (!selectedId) {
+      await interaction.reply({ content: '選択されたアイテムがありません。', ephemeral: true });
+      return;
+    }
 
-  await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ ephemeral: true });
 
-  const item = await prisma.shopItem.findFirst({
-    where: { id: selectedId, guildId }
-  });
+    const item = await prisma.shopItem.findFirst({
+      where: { id: selectedId, guildId }
+    });
 
-  if (!item) {
-    await interaction.editReply({ content: '選択したアイテムが見つかりません。', components: [], embeds: [] });
-    return;
+    if (!item) {
+      await interaction.editReply({ content: '選択したアイテムが見つかりません。', components: [], embeds: [] });
+      return;
+    }
+
+    const sessionId = createSession({
+      guildId,
+      userId: interaction.user.id,
+      itemId: item.id
+    });
+
+    const confirmButton = new ButtonBuilder()
+      .setCustomId(`${SHOP_CONFIRM_ID}:${sessionId}`)
+      .setLabel('購入')
+      .setStyle(ButtonStyle.Success);
+
+    const cancelButton = new ButtonBuilder()
+      .setCustomId(`${SHOP_CANCEL_ID}:${sessionId}`)
+      .setLabel('キャンセル')
+      .setStyle(ButtonStyle.Secondary);
+
+    const buttons = new ActionRowBuilder().addComponents(confirmButton, cancelButton);
+    const embed = buildItemEmbed(item).setFooter({ text: item.id });
+
+    await interaction.editReply({
+      content: `この購入セッションは <@${interaction.user.id}> のみが確定できます。セッションID: ${sessionId}`,
+      embeds: [embed],
+      components: [buttons]
+    });
+  } catch (error) {
+    logger.error({ err: error, guildId, interactionId: interaction.id }, 'Failed to handle shop select');
+    const response = { content: 'アイテム情報の取得に失敗しました。', components: [], embeds: [] };
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply(response).catch(() => null);
+    } else {
+      await interaction.reply({ ...response, ephemeral: true }).catch(() => null);
+    }
   }
-
-  const sessionId = createSession({
-    guildId,
-    userId: interaction.user.id,
-    itemId: item.id
-  });
-
-  const confirmButton = new ButtonBuilder()
-    .setCustomId(`${SHOP_CONFIRM_ID}:${sessionId}`)
-    .setLabel('購入')
-    .setStyle(ButtonStyle.Success);
-
-  const cancelButton = new ButtonBuilder()
-    .setCustomId(`${SHOP_CANCEL_ID}:${sessionId}`)
-    .setLabel('キャンセル')
-    .setStyle(ButtonStyle.Secondary);
-
-  const buttons = new ActionRowBuilder().addComponents(confirmButton, cancelButton);
-  const embed = buildItemEmbed(item).setFooter({ text: item.id });
-
-  await interaction.editReply({
-    content: `この購入セッションは <@${interaction.user.id}> のみが確定できます。セッションID: ${sessionId}`,
-    embeds: [embed],
-    components: [buttons]
-  });
 }
 
 export async function handleShopCancel(interaction, sessionId) {
