@@ -26,6 +26,17 @@ spec:
                 echo "waiting for MySQL";
                 sleep 3;
               done
+        - name: prisma-migrate
+          image: kemar1/mitarashi-bot:latest
+          command:
+            - sh
+            - -c
+            - npx prisma migrate deploy
+          envFrom:
+            - secretRef:
+                name: mitarashi-bot
+            - configMapRef:
+                name: mitarashi-bot-config
       containers:
         - name: bot
           image: kemar1/mitarashi-bot:latest
