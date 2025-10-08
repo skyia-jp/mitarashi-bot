@@ -49,6 +49,6 @@
     "eslint-plugin-promise": "^6.0.1",
     "nodemon": "^3.1.4",
     "pino-pretty": "^11.2.2",
-    "prisma": "^5.16.1"
+    "prisma": "^6.17.0"
   }
 }
