@@ -27,6 +27,8 @@ model Guild {
   activityRecords ActivityRecord[]
   scheduledJobs ScheduledJob[]
   gameBiases    GameBias[]
+  currencyBalances CurrencyBalance[]
+  currencyTransactions CurrencyTransaction[]
 }
 
 model GuildConfig {
@@ -85,7 +87,7 @@ model User {
   tasksAssigned       Task[]               @relation("TaskAssignee")
   activityRecords     ActivityRecord[]     @relation("ActivityUser")
   gameBiases          GameBias[]
-  currencyBalance     CurrencyBalance?
+  currencyBalances    CurrencyBalance[]
   currencyTransactions CurrencyTransaction[]
 }
 
