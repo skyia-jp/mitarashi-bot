@@ -9,7 +9,7 @@ import {
   StringSelectMenuBuilder
 } from 'discord.js';
 import prisma from '../../database/client.js';
-import logger from '../../utils/logger.js';
+import { buildInteractionLogger } from '../../utils/logger.js';
 import { CurrencyError, debit } from '../../services/currencyService.js';
 
 export const SHOP_SELECT_ID = 'shop_select';
@@ -20,6 +20,17 @@ export const SHOP_ANNOUNCE_DELETE_SELECT_ID = 'shop_announce_delete';
 const SELECT_NOOP_VALUE = 'noop';
 
 const SESSION_TTL_MS = 5 * 60 * 1000;
+
+const buildShopLogger = (interaction, context = {}, meta = {}) => (
+  buildInteractionLogger(
+    interaction,
+    {
+      module: 'command:shop',
+      ...context
+    },
+    meta
+  )
+);
 
 const purchaseSessions = new Map();
 
@@ -302,8 +313,10 @@ export async function handleShopSelect(interaction) {
     return;
   }
 
+  let selectedId;
+
   try {
-    const selectedId = interaction.values?.[0];
+    selectedId = interaction.values?.[0];
     if (!selectedId) {
       await interaction.reply({ content: '選択されたアイテムがありません。', ephemeral: true });
       return;
@@ -350,7 +363,14 @@ export async function handleShopSelect(interaction) {
       components: [buttons]
     });
   } catch (error) {
-    logger.error({ err: error, guildId, interactionId: interaction.id }, 'Failed to handle shop select');
+    buildShopLogger(
+      interaction,
+      {
+        event: 'shop.select.error',
+        guild_id: guildId,
+        selected_id: selectedId
+      }
+    ).error({ err: error }, 'Failed to handle shop select');
     const response = { content: 'アイテム情報の取得に失敗しました。', components: [], embeds: [] };
     if (interaction.deferred || interaction.replied) {
       await interaction.editReply(response).catch(() => null);
@@ -420,7 +440,16 @@ export async function handleShopConfirm(interaction, sessionId) {
         try {
           role = await interaction.guild.roles.fetch(item.roleId);
         } catch (error) {
-          logger.error({ err: error, guildId, roleId: item.roleId }, 'Failed to fetch role for shop purchase');
+          buildShopLogger(
+            interaction,
+            {
+              event: 'shop.purchase.role.fetch.error',
+              guild_id: guildId,
+              item_id: item.id,
+              role_id: item.roleId
+            },
+            { item_name: item.name }
+          ).error({ err: error }, 'Failed to fetch role for shop purchase');
         }
       }
 
@@ -431,7 +460,17 @@ export async function handleShopConfirm(interaction, sessionId) {
             await member.roles.add(role);
           }
         } catch (error) {
-          logger.error({ err: error, guildId, roleId: item.roleId, userId: interaction.user.id }, 'Failed to assign role for shop purchase');
+          buildShopLogger(
+            interaction,
+            {
+              event: 'shop.purchase.role.assign.error',
+              guild_id: guildId,
+              item_id: item.id,
+              role_id: item.roleId,
+              user_id: interaction.user.id
+            },
+            { item_name: item.name }
+          ).error({ err: error }, 'Failed to assign role for shop purchase');
         }
       }
     }
@@ -451,7 +490,15 @@ export async function handleShopConfirm(interaction, sessionId) {
       return;
     }
 
-    logger.error({ err: error, guildId, sessionId }, 'Failed to confirm shop purchase');
+    buildShopLogger(
+      interaction,
+      {
+        event: 'shop.purchase.confirm.error',
+        guild_id: guildId,
+        session_id: sessionId,
+        item_id: session.itemId
+      }
+    ).error({ err: error }, 'Failed to confirm shop purchase');
     await interaction.reply({ content: '購入処理中にエラーが発生しました。', ephemeral: true }).catch(() => null);
   }
 }
@@ -488,7 +535,14 @@ export async function handleShopItemRemoveSelect(interaction) {
       components: []
     }).catch(() => null);
   } catch (error) {
-    logger.error({ err: error, guildId, itemId: selectedId }, 'Failed to remove shop item');
+    buildShopLogger(
+      interaction,
+      {
+        event: 'shop.item.remove.error',
+        guild_id: guildId,
+        item_id: selectedId
+      }
+    ).error({ err: error }, 'Failed to remove shop item');
     await interaction.editReply({ content: 'アイテムの削除に失敗しました。', components: [] }).catch(() => null);
   }
 }
@@ -526,7 +580,15 @@ export async function handleShopAnnounceDeleteSelect(interaction) {
 
     await interaction.editReply({ content: 'ショップ案内メッセージを削除しました。', components: [] }).catch(() => null);
   } catch (error) {
-    logger.error({ err: error, guildId: interaction.guildId, channelId, messageId }, 'Failed to delete shop announcement');
+    buildShopLogger(
+      interaction,
+      {
+        event: 'shop.announce.delete.error',
+        guild_id: interaction.guildId,
+        channel_id: channelId,
+        message_id: messageId
+      }
+    ).error({ err: error }, 'Failed to delete shop announcement');
     await interaction.editReply({ content: 'メッセージの削除に失敗しました。', components: [] }).catch(() => null);
   }
 }

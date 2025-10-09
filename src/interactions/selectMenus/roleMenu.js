@@ -1,5 +1,5 @@
 import { getMenuByMessage } from '../../services/roleMenuService.js';
-import logger from '../../utils/logger.js';
+import { buildInteractionLogger } from '../../utils/logger.js';
 
 export default {
   customId: 'role-menu',
@@ -29,7 +29,19 @@ export default {
         ephemeral: true
       });
     } catch (error) {
-      logger.error({ err: error }, 'Failed to update roles via menu');
+      buildInteractionLogger(
+        interaction,
+        {
+          module: 'interaction:role-menu',
+          event: 'role_menu.update.error',
+          guild_id: interaction.guildId
+        },
+        {
+          menu_id: menuRecord.id,
+          add_count: toAdd.length,
+          remove_count: toRemove.length
+        }
+      ).error({ err: error }, 'Failed to update roles via menu');
       await interaction.reply({ content: 'ロールの更新に失敗しました。権限を確認してください。', ephemeral: true });
     }
   }

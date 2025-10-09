@@ -3,12 +3,14 @@ import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone.js';
 import utc from 'dayjs/plugin/utc.js';
 import { DEFAULT_TIMEZONE } from '../config/constants.js';
-import logger from '../utils/logger.js';
+import { createModuleLogger } from '../utils/logger.js';
 import prisma from '../database/client.js';
 import { createReminder, deleteReminder, listPendingReminders } from '../database/repositories/reminderRepository.js';
 import { getOrCreateUser } from '../database/repositories/userRepository.js';
 
 const scheduledTasks = new Map();
+
+const reminderLogger = createModuleLogger('service:reminder');
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -24,7 +26,15 @@ async function runReminder(client, reminder) {
     const guild = await client.guilds.fetch(reminder.guildId);
     const channel = await guild.channels.fetch(reminder.channelId);
     if (!channel || !channel.isTextBased()) {
-      logger.warn({ reminderId: reminder.id }, 'Channel not found or not text-based');
+      reminderLogger.warn(
+        {
+          event: 'reminder.execute.channel_unavailable',
+          reminder_id: reminder.id,
+          guild_id: reminder.guildId,
+          channel_id: reminder.channelId
+        },
+        'Channel not found or not text-based'
+      );
       return;
     }
 
@@ -33,7 +43,16 @@ async function runReminder(client, reminder) {
 
     // No-op: node-cron handles scheduling the next execution automatically.
   } catch (error) {
-    logger.error({ err: error, reminderId: reminder.id }, 'Failed to execute reminder');
+    reminderLogger.error(
+      {
+        err: error,
+        event: 'reminder.execute.error',
+        reminder_id: reminder.id,
+        guild_id: reminder.guildId,
+        channel_id: reminder.channelId
+      },
+      'Failed to execute reminder'
+    );
   }
 }
 
@@ -72,7 +91,13 @@ export async function bootstrapReminders(client) {
   for (const reminder of reminders) {
     scheduleReminder(client, reminder);
   }
-  logger.info({ count: reminders.length }, 'Reminders scheduled');
+  reminderLogger.info(
+    {
+      event: 'reminder.bootstrap.scheduled',
+      count: reminders.length
+    },
+    'Reminders scheduled'
+  );
 }
 
 export async function registerReminder(client, discordUser, payload) {

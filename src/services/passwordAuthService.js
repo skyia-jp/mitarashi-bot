@@ -1,6 +1,8 @@
 import crypto from 'node:crypto';
 import { getGuildConfig, upsertGuildConfig } from '../database/repositories/guildRepository.js';
-import logger from '../utils/logger.js';
+import { createModuleLogger } from '../utils/logger.js';
+
+const passwordAuthLogger = createModuleLogger('service:password-auth');
 
 function hashPassword(value) {
   if (typeof value !== 'string' || value.trim().length === 0) {
@@ -42,7 +44,14 @@ export async function setPasswordAuthConfig(guildId, { password, roleId, hint })
 
   await upsertGuildConfig(guildId, update);
 
-  logger.info({ guildId, roleId }, 'Password auth settings updated');
+  passwordAuthLogger.info(
+    {
+      event: 'password_auth.config.set',
+      guild_id: guildId,
+      role_id: roleId
+    },
+    'Password auth settings updated'
+  );
 
   return update;
 }
@@ -57,7 +66,13 @@ export async function clearPasswordAuthConfig(guildId) {
 
   await upsertGuildConfig(guildId, update);
 
-  logger.info({ guildId }, 'Password auth settings cleared');
+  passwordAuthLogger.info(
+    {
+      event: 'password_auth.config.cleared',
+      guild_id: guildId
+    },
+    'Password auth settings cleared'
+  );
 
   return update;
 }

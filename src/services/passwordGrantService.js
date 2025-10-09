@@ -1,6 +1,8 @@
 import { PermissionFlagsBits } from 'discord.js';
 import { verifyPassword } from './passwordAuthService.js';
-import logger from '../utils/logger.js';
+import { createModuleLogger } from '../utils/logger.js';
+
+const passwordGrantLogger = createModuleLogger('service:password-grant');
 
 async function fetchRole(guild, roleId) {
   if (!roleId) {
@@ -68,7 +70,16 @@ export async function handlePasswordSubmission(guild, member, password) {
   try {
     await member.roles.add(role, 'Password authenticated role assignment');
   } catch (error) {
-    logger.error({ err: error, guildId: guild.id, roleId: role.id }, 'Failed to assign password auth role');
+    passwordGrantLogger.error(
+      {
+        err: error,
+        event: 'password_grant.role.assign.error',
+        guild_id: guild.id,
+        role_id: role.id,
+        member_id: member.id
+      },
+      'Failed to assign password auth role'
+    );
     return {
       ok: false,
       message: 'ロールの付与に失敗しました。Botの権限やロールの位置を確認してください。'

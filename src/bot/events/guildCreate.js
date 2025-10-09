@@ -1,6 +1,8 @@
 import prisma from '../../database/client.js';
-import logger from '../../utils/logger.js';
+import { createModuleLogger } from '../../utils/logger.js';
 import { ensureActivitySummaryJob, setActivitySummaryActive } from '../../services/jobService.js';
+
+const guildLogger = createModuleLogger('event:guildCreate');
 
 export default {
   name: 'guildCreate',
@@ -10,8 +12,18 @@ export default {
       update: { name: guild.name },
       create: { id: guild.id, name: guild.name }
     });
-  await ensureActivitySummaryJob(client, guild.id);
-  await setActivitySummaryActive(client, guild.id, true);
-    logger.info({ guildId: guild.id }, 'Joined new guild');
+
+    await ensureActivitySummaryJob(client, guild.id);
+    await setActivitySummaryActive(client, guild.id, true);
+
+    guildLogger.info(
+      {
+        event: 'guild.joined',
+        guild_id: guild.id,
+        guild_name: guild.name,
+        member_count: guild.memberCount
+      },
+      'Joined new guild'
+    );
   }
 };

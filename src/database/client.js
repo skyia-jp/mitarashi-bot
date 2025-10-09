@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
-import logger from '../utils/logger.js';
+import { createModuleLogger } from '../utils/logger.js';
+
+const prismaLogger = createModuleLogger('database:prisma');
 
 const prisma = new PrismaClient({
   log: ['warn', 'error']
@@ -8,11 +10,11 @@ const prisma = new PrismaClient({
 if (!globalThis.__prismaBeforeExitHandler) {
   globalThis.__prismaBeforeExitHandler = true;
   process.once('beforeExit', async () => {
-    logger.info('Prisma client disconnecting');
+    prismaLogger.info({ event: 'prisma.disconnect.start' }, 'Prisma client disconnecting');
     try {
       await prisma.$disconnect();
     } catch (error) {
-      logger.error({ err: error }, 'Failed to disconnect Prisma client');
+      prismaLogger.error({ err: error, event: 'prisma.disconnect.error' }, 'Failed to disconnect Prisma client');
     }
   });
 }

@@ -2,11 +2,13 @@ import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { importRecursively } from '../utils/fileLoader.js';
-import logger from '../utils/logger.js';
+import { createModuleLogger } from '../utils/logger.js';
 import { bootstrapReminders } from '../services/reminderService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const botLogger = createModuleLogger('bot:client');
 
 export default class BotClient extends Client {
   constructor() {
@@ -33,7 +35,14 @@ export default class BotClient extends Client {
     await this.loadComponents();
 
     this.once('ready', async () => {
-      logger.info({ tag: this.user?.tag }, 'Bot logged in');
+      botLogger.info(
+        {
+          event: 'bot.ready',
+          user_tag: this.user?.tag,
+          guilds: this.guilds.cache.size
+        },
+        'Bot logged in'
+      );
       await bootstrapReminders(this);
     });
 
@@ -56,7 +65,13 @@ export default class BotClient extends Client {
       }
       this.commands.set(command.data.name, command);
     }
-    logger.info({ count: this.commands.size }, 'Commands loaded');
+    botLogger.info(
+      {
+        event: 'bot.commands.loaded',
+        count: this.commands.size
+      },
+      'Commands loaded'
+    );
   }
 
   async loadEvents() {
@@ -73,7 +88,13 @@ export default class BotClient extends Client {
         this.on(event.name, (...args) => event.execute(this, ...args));
       }
     }
-    logger.info('Events wired');
+    botLogger.info(
+      {
+        event: 'bot.events.wired',
+        count: modules.length
+      },
+      'Events wired'
+    );
   }
 
   async loadComponents() {
@@ -86,5 +107,13 @@ export default class BotClient extends Client {
       if (!handler?.customId || typeof handler.execute !== 'function') continue;
       this.componentHandlers.set(handler.customId, handler);
     }
+
+    botLogger.info(
+      {
+        event: 'bot.components.loaded',
+        count: this.componentHandlers.size
+      },
+      'Component handlers registered'
+    );
   }
 }

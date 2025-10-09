@@ -1,32 +1,5 @@
-import { createLogger } from '../../utils/logger.js';
+import { buildInteractionLogger } from '../../utils/logger.js';
 import { recordSlashCommandOutcome } from '../../utils/interactionAudit.js';
-
-function buildInteractionLogger(interaction, overrides = {}, meta = {}) {
-  const base = {
-    module: 'interaction',
-    trace_id: interaction.id,
-    interaction_id: interaction.id,
-    interaction_kind: interaction.isChatInputCommand()
-      ? 'chat_input'
-      : interaction.isButton()
-      ? 'button'
-      : interaction.isStringSelectMenu()
-      ? 'string_select'
-      : interaction.isModalSubmit()
-      ? 'modal_submit'
-      : interaction.type,
-    user_id: interaction.user?.id,
-    guild_id: interaction.guildId ?? 'dm',
-    channel_id: interaction.channelId ?? 'dm',
-    locale: interaction.locale,
-    ...overrides
-  };
-
-  return createLogger(base, {
-    userTag: interaction.user?.tag,
-    ...meta
-  });
-}
 
 export default {
   name: 'interactionCreate',
@@ -39,7 +12,7 @@ export default {
           { command: interaction.commandName },
           { reason: 'missing_command' }
         );
-        missingLogger.warn('Received unknown slash command');
+        missingLogger.warn({ event: 'interaction.command.missing' }, 'Received unknown slash command');
         await recordSlashCommandOutcome(interaction, {
           status: 'warning',
           durationMs: 0,
@@ -59,12 +32,18 @@ export default {
       });
 
       const startedAt = Date.now();
-      commandLogger.info('Handling slash command');
+  commandLogger.info({ event: 'interaction.command.start' }, 'Handling slash command');
 
       try {
         await command.execute(client, interaction);
         const successDurationMs = Date.now() - startedAt;
-        commandLogger.info({ durationMs: successDurationMs }, 'Slash command executed successfully');
+        commandLogger.info(
+          {
+            event: 'interaction.command.success',
+            duration_ms: successDurationMs
+          },
+          'Slash command executed successfully'
+        );
         await recordSlashCommandOutcome(interaction, {
           status: 'success',
           durationMs: successDurationMs,
@@ -73,7 +52,14 @@ export default {
         });
       } catch (error) {
         const failureDurationMs = Date.now() - startedAt;
-        commandLogger.error({ err: error, durationMs: failureDurationMs }, 'Slash command execution failed');
+        commandLogger.error(
+          {
+            err: error,
+            event: 'interaction.command.error',
+            duration_ms: failureDurationMs
+          },
+          'Slash command execution failed'
+        );
         if (interaction.deferred || interaction.replied) {
           await interaction.editReply({ content: 'コマンド実行中にエラーが発生しました。' });
         } else {
@@ -105,7 +91,7 @@ export default {
           { component: interaction.customId },
           { reason: 'missing_component', dynamicKey }
         );
-        missingLogger.warn('Received component interaction without handler');
+        missingLogger.warn({ event: 'interaction.component.missing' }, 'Received component interaction without handler');
         return;
       }
 
@@ -115,15 +101,28 @@ export default {
       });
 
       const startedAt = Date.now();
-      componentLogger.info('Handling component interaction');
+  componentLogger.info({ event: 'interaction.component.start' }, 'Handling component interaction');
 
       try {
         await handler.execute(client, interaction);
         const successDurationMs = Date.now() - startedAt;
-        componentLogger.info({ durationMs: successDurationMs }, 'Component interaction handled successfully');
+        componentLogger.info(
+          {
+            event: 'interaction.component.success',
+            duration_ms: successDurationMs
+          },
+          'Component interaction handled successfully'
+        );
       } catch (error) {
         const failureDurationMs = Date.now() - startedAt;
-        componentLogger.error({ err: error, durationMs: failureDurationMs }, 'Component interaction failed');
+        componentLogger.error(
+          {
+            err: error,
+            event: 'interaction.component.error',
+            duration_ms: failureDurationMs
+          },
+          'Component interaction failed'
+        );
       }
     }
   }

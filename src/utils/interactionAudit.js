@@ -85,7 +85,11 @@ async function resolveLogChannel(client) {
     const channel = await client.channels.fetch(LOG_CHANNEL_ID);
     if (!channel || !channel.isTextBased()) {
       auditLogger.warn(
-        { channelId: LOG_CHANNEL_ID, channelType: channel?.type },
+        {
+          event: 'audit.channel.unavailable',
+          channel_id: LOG_CHANNEL_ID,
+          channel_type: channel?.type
+        },
         'Log channel is not text-based or unavailable'
       );
       return null;
@@ -95,7 +99,14 @@ async function resolveLogChannel(client) {
     cachedClientId = client.user?.id ?? null;
     return channel;
   } catch (error) {
-    auditLogger.warn({ err: error, channelId: LOG_CHANNEL_ID }, 'Failed to fetch log channel');
+    auditLogger.warn(
+      {
+        err: error,
+        event: 'audit.channel.fetch.error',
+        channel_id: LOG_CHANNEL_ID
+      },
+      'Failed to fetch log channel'
+    );
     return null;
   }
 }
@@ -234,7 +245,11 @@ async function sendEmbedToWebhook(embedJson, status) {
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       auditLogger.warn(
-        { statusCode: response.statusCode, statusText: response.statusMessage },
+        {
+          event: 'audit.webhook.post.failed',
+          status_code: response.statusCode,
+          status_text: response.statusMessage
+        },
         'Failed to post interaction audit to Discord webhook'
       );
       return false;
@@ -242,7 +257,13 @@ async function sendEmbedToWebhook(embedJson, status) {
 
     return true;
   } catch (error) {
-    auditLogger.warn({ err: error }, 'Failed to post interaction audit to Discord webhook');
+    auditLogger.warn(
+      {
+        err: error,
+        event: 'audit.webhook.post.error'
+      },
+      'Failed to post interaction audit to Discord webhook'
+    );
     return false;
   }
 }
@@ -261,7 +282,14 @@ export async function recordSlashCommandOutcome(interaction, result) {
   if (channel) {
     destinations.push(
       channel.send({ embeds: [embed] }).catch((error) => {
-        auditLogger.warn({ err: error }, 'Failed to send interaction audit log to channel');
+        auditLogger.warn(
+          {
+            err: error,
+            event: 'audit.channel.post.error',
+            channel_id: channel?.id
+          },
+          'Failed to send interaction audit log to channel'
+        );
       })
     );
   }
@@ -271,7 +299,7 @@ export async function recordSlashCommandOutcome(interaction, result) {
   }
 
   if (!destinations.length) {
-    auditLogger.debug('No audit log destination configured');
+  auditLogger.debug({ event: 'audit.destination.missing' }, 'No audit log destination configured');
     return;
   }
 
