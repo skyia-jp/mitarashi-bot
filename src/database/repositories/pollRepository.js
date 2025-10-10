@@ -87,3 +87,21 @@ export function getVoteStats(pollId) {
     }
   });
 }
+
+export function listPollsByGuild(guildId, { take = 10, skip = 0 } = {}) {
+  return prisma.poll.findMany({
+    where: { guildId },
+    orderBy: { createdAt: 'desc' },
+    take,
+    skip,
+    select: {
+      id: true,
+      question: true,
+      status: true,
+      channelId: true,
+      messageId: true,
+      createdAt: true,
+      updatedAt: true
+    }
+  });
+}

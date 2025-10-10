@@ -5,8 +5,23 @@ import {
   closePollWithSummary,
   createGuildPoll,
   getPollByMessageId,
+  listGuildPolls,
   summarizePoll
 } from '../../services/pollService.js';
+import { buildInteractionLogger } from '../../utils/logger.js';
+
+const DEFAULT_LIST_LIMIT = 10;
+const MAX_LIST_LIMIT = 20;
+
+const buildPollLogger = (interaction, context = {}, meta = {}) =>
+  buildInteractionLogger(
+    interaction,
+    {
+      module: 'command:poll',
+      ...context
+    },
+    meta
+  );
 
 function collectOptions(interaction) {
   const options = [];
@@ -31,6 +46,17 @@ function buildActionRow(poll, disabled = false) {
       disabled
     }))
   };
+}
+
+function truncate(text, maxLength) {
+  if (typeof text !== 'string') return '';
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 1)}…`;
+}
+
+function toDiscordTimestamp(date) {
+  if (!(date instanceof Date)) return '日時不明';
+  return `<t:${Math.floor(date.getTime() / 1000)}:f>`;
 }
 
 export default {
@@ -85,6 +111,18 @@ export default {
           .addStringOption((option) =>
             option.setName('message_id').setDescription('投票メッセージID').setRequired(true)
           )
+      )
+      .addSubcommand((sub) =>
+        sub
+          .setName('list')
+          .setDescription('登録済みの投票を一覧表示します')
+          .addIntegerOption((option) =>
+            option
+              .setName('limit')
+              .setDescription('取得する最大件数 (1-20)')
+              .setMinValue(1)
+              .setMaxValue(MAX_LIST_LIMIT)
+          )
       );
 
     return builder;
@@ -111,6 +149,65 @@ export default {
       await attachPollMessageId(poll.id, pollMessage.id);
 
       await interaction.editReply({ content: `投票を作成しました。メッセージID: ${pollMessage.id}` });
+      return;
+    }
+
+    if (subcommand === 'list') {
+      await interaction.deferReply({ ephemeral: true });
+      const limit = interaction.options.getInteger('limit') ?? DEFAULT_LIST_LIMIT;
+      const listLogger = buildPollLogger(
+        interaction,
+        { action: 'list' },
+        { limit }
+      );
+
+      listLogger.info({ event: 'poll.list.start', limit });
+
+      try {
+        const polls = await listGuildPolls(interaction.guildId, { limit });
+
+        if (!polls.length) {
+          listLogger.info({ event: 'poll.list.empty' }, 'No polls found for guild');
+          await interaction.editReply({ content: '登録済みの投票はありません。' });
+          return;
+        }
+
+        const lines = polls.map((poll) => {
+          const statusLabel = poll.status === 'open' ? '🟢 開催中' : '⚪ 終了';
+          const channelLabel = poll.channelId ? `<#${poll.channelId}>` : 'チャンネル不明';
+          const messageLabel = poll.messageId ? poll.messageId : '未設定';
+          const timestamp = toDiscordTimestamp(poll.createdAt);
+          const question = truncate(poll.question, 200);
+          const link = poll.messageId && poll.channelId
+            ? `https://discord.com/channels/${interaction.guildId}/${poll.channelId}/${poll.messageId}`
+            : null;
+
+          return [
+            `${statusLabel} ${question}`,
+            `MessageID: ${messageLabel} ｜ Channel: ${channelLabel} ｜ 作成: ${timestamp}`,
+            link ? `リンク: ${link}` : null
+          ]
+            .filter(Boolean)
+            .join('\n');
+        });
+
+        const embed = {
+          title: '📋 登録済み投票一覧',
+          description: lines.join('\n\n').slice(0, 4096),
+          color: 0x5865f2,
+          footer: {
+            text: `表示件数: ${polls.length} / ${limit}`
+          },
+          timestamp: new Date().toISOString()
+        };
+
+        listLogger.info({ event: 'poll.list.success', count: polls.length }, 'Poll list returned');
+        await interaction.editReply({ embeds: [embed] });
+      } catch (error) {
+        listLogger.error({ err: error, event: 'poll.list.error' }, 'Failed to fetch poll list');
+        await interaction.editReply({ content: '投票一覧の取得に失敗しました。後で再度お試しください。' });
+      }
+
       return;
     }
 

@@ -5,6 +5,7 @@ import {
   getPollById,
   getPollByMessageId,
   getVoteStats,
+  listPollsByGuild,
   recordVote
 } from '../database/repositories/pollRepository.js';
 import { getOrCreateUser } from '../database/repositories/userRepository.js';
@@ -114,3 +115,9 @@ export async function closePollWithSummary(pollId) {
 }
 
 export { getPollByMessageId };
+
+export async function listGuildPolls(guildId, { limit = 10, offset = 0 } = {}) {
+  const take = Math.max(1, Math.min(limit, 50));
+  const skip = Math.max(0, offset);
+  return listPollsByGuild(guildId, { take, skip });
+}
