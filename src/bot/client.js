@@ -46,12 +46,8 @@ export default class BotClient extends Client {
       );
 
       for (const guild of this.guilds.cache.values()) {
-        if (!isGuildBlacklisted(guild.id)) continue;
-        try {
-          await guild.leave();
-          botLogger.info({ event: 'bot.gban.leave', guild_id: guild.id }, 'Left blacklisted guild');
-        } catch (error) {
-          botLogger.error({ err: error, event: 'bot.gban.leave.error', guild_id: guild.id }, 'Failed to leave blacklisted guild');
+        if (isGuildBlacklisted(guild.id)) {
+          await guild.leave().catch(() => null);
         }
       }
 

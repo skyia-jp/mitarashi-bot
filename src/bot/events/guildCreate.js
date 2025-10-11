@@ -9,12 +9,7 @@ export default {
   name: 'guildCreate',
   async execute(client, guild) {
     if (isGuildBlacklisted(guild.id)) {
-      try {
-        await guild.leave();
-        guildLogger.info({ event: 'guild.gban.leave', guild_id: guild.id }, 'Left blacklisted guild on join');
-      } catch (error) {
-        guildLogger.error({ err: error, event: 'guild.gban.leave.error', guild_id: guild.id }, 'Failed to leave blacklisted guild on join');
-      }
+      await guild.leave().catch(() => null);
       return;
     }
 
