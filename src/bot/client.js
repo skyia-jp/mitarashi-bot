@@ -54,9 +54,9 @@ export default class BotClient extends Client {
       await bootstrapReminders(this);
     });
 
-    const token = process.env.BOT_TOKEN;
+    const token = process.env.BOT_TOKEN ?? process.env.DISCORD_BOT_TOKEN;
     if (!token) {
-      throw new Error('BOT_TOKEN is not set');
+      throw new Error('BOT_TOKEN (または DISCORD_BOT_TOKEN) is not set');
     }
     await this.login(token);
   }
