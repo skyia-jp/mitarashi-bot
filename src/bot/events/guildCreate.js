@@ -1,12 +1,23 @@
 import prisma from '../../database/client.js';
 import { createModuleLogger } from '../../utils/logger.js';
 import { ensureActivitySummaryJob, setActivitySummaryActive } from '../../services/jobService.js';
+import { isGuildBlacklisted } from '../../config/gban.js';
 
 const guildLogger = createModuleLogger('event:guildCreate');
 
 export default {
   name: 'guildCreate',
   async execute(client, guild) {
+    if (isGuildBlacklisted(guild.id)) {
+      try {
+        await guild.leave();
+        guildLogger.info({ event: 'guild.gban.leave', guild_id: guild.id }, 'Left blacklisted guild on join');
+      } catch (error) {
+        guildLogger.error({ err: error, event: 'guild.gban.leave.error', guild_id: guild.id }, 'Failed to leave blacklisted guild on join');
+      }
+      return;
+    }
+
     await prisma.guild.upsert({
       where: { id: guild.id },
       update: { name: guild.name },

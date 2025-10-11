@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { importRecursively } from '../utils/fileLoader.js';
 import { createModuleLogger } from '../utils/logger.js';
 import { bootstrapReminders } from '../services/reminderService.js';
+import { isGuildBlacklisted } from '../config/gban.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,12 +44,23 @@ export default class BotClient extends Client {
         },
         'Bot logged in'
       );
+
+      for (const guild of this.guilds.cache.values()) {
+        if (!isGuildBlacklisted(guild.id)) continue;
+        try {
+          await guild.leave();
+          botLogger.info({ event: 'bot.gban.leave', guild_id: guild.id }, 'Left blacklisted guild');
+        } catch (error) {
+          botLogger.error({ err: error, event: 'bot.gban.leave.error', guild_id: guild.id }, 'Failed to leave blacklisted guild');
+        }
+      }
+
       await bootstrapReminders(this);
     });
 
-    const token = process.env.DISCORD_BOT_TOKEN;
+    const token = process.env.BOT_TOKEN;
     if (!token) {
-      throw new Error('DISCORD_BOT_TOKEN is not set');
+      throw new Error('BOT_TOKEN is not set');
     }
     await this.login(token);
   }
