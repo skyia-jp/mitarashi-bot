@@ -1,0 +1,126 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: telegraf
+  namespace: ibuki-mitarashi-bot
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: telegraf
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "nodes", "namespaces"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: telegraf
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: telegraf
+subjects:
+  - kind: ServiceAccount
+    name: telegraf
+    namespace: ibuki-mitarashi-bot
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: telegraf-influx-secret
+  namespace: ibuki-mitarashi-bot
+type: Opaque
+stringData:
+  INFLUX_URL: "https://influxdb.skyia.jp"
+  INFLUX_TOKEN: ""
+  INFLUX_ORG: ""
+  INFLUX_BUCKET: ""
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: telegraf
+  namespace: ibuki-mitarashi-bot
+spec:
+  selector:
+    matchLabels:
+      app: telegraf
+  template:
+    metadata:
+      labels:
+        app: telegraf
+    spec:
+      serviceAccountName: telegraf
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: telegraf
+          image: telegraf:1.26
+          imagePullPolicy: IfNotPresent
+          args: ["--config", "/etc/telegraf/telegraf.conf"]
+          env:
+            - name: INFLUX_URL
+              valueFrom:
+                secretKeyRef:
+                  name: telegraf-influx-secret
+                  key: INFLUX_URL
+            - name: INFLUX_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: telegraf-influx-secret
+                  key: INFLUX_TOKEN
+            - name: INFLUX_ORG
+              valueFrom:
+                secretKeyRef:
+                  name: telegraf-influx-secret
+                  key: INFLUX_ORG
+            - name: INFLUX_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: telegraf-influx-secret
+                  key: INFLUX_BUCKET
+          volumeMounts:
+            - name: config
+              mountPath: /etc/telegraf/telegraf.conf
+              subPath: telegraf.conf
+            - name: varlog
+              mountPath: /var/log
+              readOnly: true
+            - name: dockersock
+              mountPath: /var/run/docker.sock
+              readOnly: true
+            - name: proc
+              mountPath: /host/proc
+              readOnly: true
+            - name: sys
+              mountPath: /host/sys
+              readOnly: true
+          resources:
+            limits:
+              memory: "200Mi"
+              cpu: "200m"
+            requests:
+              memory: "50Mi"
+              cpu: "50m"
+      volumes:
+        - name: config
+          configMap:
+            name: telegraf-config
+        - name: varlog
+          hostPath:
+            path: /var/log
+        - name: dockersock
+          hostPath:
+            path: /var/run/docker.sock
+        - name: proc
+          hostPath:
+            path: /proc
+        - name: sys
+          hostPath:
+            path: /sys
