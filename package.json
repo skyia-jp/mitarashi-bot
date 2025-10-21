@@ -27,8 +27,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@influxdata/influxdb-client": "^1.35.0",
     "@prisma/client": "^6.17.0",
-    "pino-pretty": "^11.2.2",
     "@unipro-tech/node-logger": "^1.0.0",
     "dayjs": "^1.11.11",
     "discord.js": "^14.14.1",
@@ -40,6 +40,7 @@
     "pino-abstract-transport": "^1.1.0",
     "pino-discord-webhook": "^0.1.7",
     "pino-loki": "^2.2.0",
+    "pino-pretty": "^11.2.2",
     "wanakana": "^5.3.1"
   },
   "devDependencies": {
