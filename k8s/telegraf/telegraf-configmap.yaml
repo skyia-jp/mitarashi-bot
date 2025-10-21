@@ -69,13 +69,19 @@ data:
       data_format = "json"
       json_time_key = "time"
       json_time_format = "RFC3339"
-      # fallback to regex if logs are not pure json
-      grok_patterns = ["%{TIMESTAMP_ISO8601:ts} %{GREEDYDATA:message}"]
-      grok_names = ["timestamp","message"]
+      # If your logs are NOT JSON, change data_format to "grok" and set
+      # grok_patterns appropriately. When using json, do not set grok_patterns/grok_names.
 
     ########################################
     # PROCESSOR/AGGREGATOR examples (optional)
     ########################################
+    [[processors.decode_json_fields]]
+      ## decode JSON in the 'message' field into separate fields
+      fields = ["message"]
+      tag_keys = []
+      create_keys = true
+      keep_original = false
+
     [[processors.rename]]
       [[processors.rename.replace]]
         field = "usage_guest"
