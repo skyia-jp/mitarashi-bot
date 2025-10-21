@@ -5,28 +5,7 @@ metadata:
   namespace: ibuki-mitarashi-bot
 
 ---
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: telegraf
-rules:
-  - apiGroups: [""]
-    resources: ["pods", "nodes", "namespaces"]
-    verbs: ["get", "list", "watch"]
-
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: telegraf
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: telegraf
-subjects:
-  - kind: ServiceAccount
-    name: telegraf
-    namespace: ibuki-mitarashi-bot
+## ClusterRole and ClusterRoleBinding were moved to k8s/cluster/telegraf-rbac.yaml
 
 ---
 apiVersion: v1
