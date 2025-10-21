@@ -66,23 +66,25 @@ data:
       files = ["/var/log/containers/*.log"]
       from_beginning = false
       name_override = "k8s_container_logs"
-      data_format = "json"
-      json_time_key = "time"
-      json_time_format = "RFC3339"
-      # If your logs are NOT JSON, change data_format to "grok" and set
-      # grok_patterns appropriately. When using json, do not set grok_patterns/grok_names.
+      # Kubernetes container logs include a leading timestamp and stream (stdout/stderr)
+      # followed by the actual log payload. Use grok to split the line and capture
+      # the payload into 'message', then parse it as JSON via processors.parser.
+      data_format = "grok"
+      grok_patterns = ["%{TIMESTAMP_ISO8601:log_timestamp} %{DATA:stream} %{DATA:flag} %{GREEDYDATA:message}"]
+      grok_custom_patterns = ""
 
     ########################################
     # PROCESSOR/AGGREGATOR examples (optional)
     ########################################
-    # NOTE: The 'decode_json_fields' processor may not be available in all
-    # telegraf builds. If it's missing the agent will fail to start (undefined
-    # processor). Removed here to ensure config loads. If you need to decode a
-    # nested JSON string (for example container log stored under 'log' or
-    # 'message'), consider one of:
-    #  - use data_format = "grok" and then a parser to decode JSON
-    #  - use an image/build of telegraf that includes 'processors.decode_json_fields'
-    #  - use processors.parser (if available) to parse the nested field
+    # If the 'message' field contains JSON, parse it and merge fields into the
+    # metric using processors.parser. If your telegraf build does not include
+    # the parser processor, remove this block and consider using a telegraf
+    # image that includes processors.parser or pre-parsing logs upstream.
+    [[processors.parser]]
+      parse_fields = ["message"]
+      data_format = "json"
+      merge = true
+      drop_original = false
 
     [[processors.rename]]
       [[processors.rename.replace]]
