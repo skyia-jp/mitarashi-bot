@@ -31,32 +31,32 @@ spec:
             - name: INFLUX_URL
               valueFrom:
                 secretKeyRef:
-                  name: telegraf-influx-secret
+                  name: mitarashi-bot
                   key: INFLUX_URL
             - name: INFLUX_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: telegraf-influx-secret
-                  key: INFLUX_TOKEN
+                  name: mitarashi-bot
+                  key: INFLUXDB_TOKEN
             - name: INFLUX_ORG
               valueFrom:
                 secretKeyRef:
-                  name: telegraf-influx-secret
+                  name: mitarashi-bot
                   key: INFLUX_ORG
             - name: INFLUX_BUCKET
               valueFrom:
                 secretKeyRef:
-                  name: telegraf-influx-secret
+                  name: mitarashi-bot
                   key: INFLUX_BUCKET
             - name: INFLUX_USER
               valueFrom:
                 secretKeyRef:
-                  name: telegraf-influx-secret
+                  name: mitarashi-bot
                   key: INFLUX_USER
             - name: INFLUX_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: telegraf-influx-secret
+                  name: mitarashi-bot
                   key: INFLUX_PASSWORD
           volumeMounts:
             - name: config
