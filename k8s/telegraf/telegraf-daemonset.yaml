@@ -5,22 +5,6 @@ metadata:
   namespace: ibuki-mitarashi-bot
 
 ---
-## ClusterRole and ClusterRoleBinding were moved to k8s/cluster/telegraf-rbac.yaml
-
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: telegraf-influx-secret
-  namespace: ibuki-mitarashi-bot
-type: Opaque
-stringData:
-  INFLUX_URL: "https://influxdb.skyia.jp"
-  INFLUX_TOKEN: ""
-  INFLUX_ORG: ""
-  INFLUX_BUCKET: ""
-
----
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -64,6 +48,16 @@ spec:
                 secretKeyRef:
                   name: telegraf-influx-secret
                   key: INFLUX_BUCKET
+            - name: INFLUX_USER
+              valueFrom:
+                secretKeyRef:
+                  name: telegraf-influx-secret
+                  key: INFLUX_USER
+            - name: INFLUX_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: telegraf-influx-secret
+                  key: INFLUX_PASSWORD
           volumeMounts:
             - name: config
               mountPath: /etc/telegraf/telegraf.conf
