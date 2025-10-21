@@ -75,12 +75,14 @@ data:
     ########################################
     # PROCESSOR/AGGREGATOR examples (optional)
     ########################################
-    [[processors.decode_json_fields]]
-      ## decode JSON in the 'message' field into separate fields
-      fields = ["message"]
-      tag_keys = []
-      create_keys = true
-      keep_original = false
+    # NOTE: The 'decode_json_fields' processor may not be available in all
+    # telegraf builds. If it's missing the agent will fail to start (undefined
+    # processor). Removed here to ensure config loads. If you need to decode a
+    # nested JSON string (for example container log stored under 'log' or
+    # 'message'), consider one of:
+    #  - use data_format = "grok" and then a parser to decode JSON
+    #  - use an image/build of telegraf that includes 'processors.decode_json_fields'
+    #  - use processors.parser (if available) to parse the nested field
 
     [[processors.rename]]
       [[processors.rename.replace]]
