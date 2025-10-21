@@ -7,3 +7,5 @@ resources:
   - mysql-statefulset.yaml
   - mysql-service.yaml
   - sealed/env.yaml
+  - telegraf/telegraf-configmap.yaml
+  - telegraf/telegraf-daemonset.yaml
