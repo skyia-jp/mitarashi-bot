@@ -80,11 +80,11 @@ data:
     # metric using processors.parser. If your telegraf build does not include
     # the parser processor, remove this block and consider using a telegraf
     # image that includes processors.parser or pre-parsing logs upstream.
-    [[processors.parser]]
-      parse_fields = ["message"]
-      data_format = "json"
-      merge = true
-      drop_original = false
+    # processors.parser removed because this telegraf build expects different
+    # types for parser options (merge may be a string), causing startup failures.
+    # If you need JSON parsing of the 'message' field, either:
+    #  - use a telegraf build that includes the parser processor and accepts these options,
+    #  - or implement parsing upstream (e.g. Fluent Bit) or use a grok pattern to extract fields.
 
     [[processors.rename]]
       [[processors.rename.replace]]
