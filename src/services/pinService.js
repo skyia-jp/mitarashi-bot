@@ -116,6 +116,9 @@ export async function unpinAllInChannel(interaction, channel) {
   const all = await listPinnedMessages(interaction.guildId);
   const channelRecords = all.filter((r) => r.channelId === channel.id);
   let count = 0;
+  // Small helper to avoid hitting Discord rate limits when deleting many messages
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
   for (const record of channelRecords) {
     // attempt to remove clone message if exists
     try {
@@ -124,6 +127,8 @@ export async function unpinAllInChannel(interaction, channel) {
         const existing = await channel.messages.fetch(cloneId).catch(() => null);
         if (existing) {
           await existing.delete().catch(() => null);
+          // polite delay between deletes
+          await sleep(150);
         }
       }
     } catch (err) {

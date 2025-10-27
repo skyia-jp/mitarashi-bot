@@ -52,6 +52,14 @@ export default {
 
     // If 'all' flag is provided and true, remove all pinned messages in this channel
     if (all) {
+      // require manage messages permission to perform mass-unpin
+      const perms = interaction.memberPermissions || interaction.member?.permissions;
+      const canManage = perms ? perms.has('ManageMessages') || perms.has('Administrator') : false;
+      if (!canManage) {
+        await interaction.reply({ content: 'この操作を行うにはメッセージ管理権限が必要です。', ephemeral: true });
+        return;
+      }
+
       const { unpinAllInChannel } = await import('../../services/pinService.js');
       const count = await unpinAllInChannel(interaction, channel);
       await interaction.reply({
