@@ -56,6 +56,12 @@ export async function pinMessage(interaction, message, expiresAt = null) {
     await removeExistingClone(channel, currentRecord);
   }
 
+  // Truncate snapshot content to avoid DB column overflow in case of unexpectedly long content
+  const MAX_SNAPSHOT_CHARS = 65500; // conservative for LONGTEXT and multibyte
+  if (snapshot.content && snapshot.content.length > MAX_SNAPSHOT_CHARS) {
+    snapshot.content = snapshot.content.slice(0, MAX_SNAPSHOT_CHARS) + '\n\n...[truncated]';
+  }
+
   const clone = await channel.send(buildMessagePayload(snapshot));
 
   if (currentRecord) {

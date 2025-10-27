@@ -184,7 +184,8 @@ model PinnedMessage {
   expiresAt   DateTime?
   sourceMessageId String?
   cloneMessageId  String?
-  snapshotContent String?
+  // snapshotContent may hold long message bodies; use LONGTEXT to avoid "value too long" errors
+  snapshotContent String? @db.LongText
   snapshotEmbeds  Json?
   snapshotFiles   Json?
   createdAt   DateTime @default(now())
