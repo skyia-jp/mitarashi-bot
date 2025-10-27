@@ -21,12 +21,19 @@ export default {
           option
             .setName('message_id')
             .setDescription('ピン留めを解除したいメッセージID')
-            .setRequired(true)
+            .setRequired(false)
+        )
+        .addBooleanOption((option) =>
+          option
+            .setName('all')
+            .setDescription('このチャンネルのすべてのピンを解除します (true/false)')
+            .setRequired(false)
         )
     ),
   async execute(client, interaction) {
     const subcommand = interaction.options.getSubcommand();
-    const messageId = interaction.options.getString('message_id', true);
+  const messageId = interaction.options.getString('message_id', false);
+  const all = interaction.options.getBoolean('all');
     const channel = interaction.channel;
     if (subcommand === 'add') {
       const message = await channel.messages.fetch(messageId).catch(() => null);
@@ -40,6 +47,22 @@ export default {
         content: `📌 メッセージ ${messageId} を固定しました。以後、新しい投稿後も末尾に再掲されます。`,
         ephemeral: true
       });
+      return;
+    }
+
+    // If 'all' flag is provided and true, remove all pinned messages in this channel
+    if (all) {
+      const { unpinAllInChannel } = await import('../../services/pinService.js');
+      const count = await unpinAllInChannel(interaction, channel);
+      await interaction.reply({
+        content: `📍 このチャンネルのピンをすべて解除しました。合計: ${count} 件。`,
+        ephemeral: true
+      });
+      return;
+    }
+
+    if (!messageId) {
+      await interaction.reply({ content: 'message_id を指定するか all=true を指定してください。', ephemeral: true });
       return;
     }
 

@@ -111,6 +111,36 @@ export async function unpinMessage(interaction, message) {
   return record;
 }
 
+export async function unpinAllInChannel(interaction, channel) {
+  // Remove all pinned records for this guild+channel
+  const all = await listPinnedMessages(interaction.guildId);
+  const channelRecords = all.filter((r) => r.channelId === channel.id);
+  let count = 0;
+  for (const record of channelRecords) {
+    // attempt to remove clone message if exists
+    try {
+      const cloneId = record.cloneMessageId ?? record.messageId;
+      if (cloneId) {
+        const existing = await channel.messages.fetch(cloneId).catch(() => null);
+        if (existing) {
+          await existing.delete().catch(() => null);
+        }
+      }
+    } catch (err) {
+      // ignore errors per-record
+    }
+
+    try {
+      await deletePinnedMessage(record.id);
+      count += 1;
+    } catch (err) {
+      // ignore delete errors
+    }
+  }
+
+  return count;
+}
+
 export async function refreshPinnedMessagePosition(channel) {
   const record = await findPinnedMessageByChannel(channel.guild.id, channel.id);
   if (!record) return;
