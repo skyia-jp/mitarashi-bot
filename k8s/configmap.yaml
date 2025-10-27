@@ -7,5 +7,3 @@ metadata:
     app: mitarashi-bot
 data:
   DEFAULT_TIMEZONE: "Asia/Tokyo"
-  # Health server port used by Kubernetes probes
-  HEALTH_PORT: "8080"

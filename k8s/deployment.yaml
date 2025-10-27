@@ -54,29 +54,6 @@ spec:
                 name: mitarashi-bot
             - configMapRef:
                 name: mitarashi-bot-config
-          ports:
-            - containerPort: 8080
-              name: http-health
-          readinessProbe:
-            httpGet:
-              path: /ready
-              port: http-health
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            timeoutSeconds: 3
-            failureThreshold: 3
-          livenessProbe:
-            httpGet:
-              path: /live
-              port: http-health
-            initialDelaySeconds: 30
-            periodSeconds: 20
-            timeoutSeconds: 3
-            failureThreshold: 5
-          lifecycle:
-            preStop:
-              exec:
-                command: ["/bin/sh", "-c", "sleep 5"]
           resources:
             requests:
               cpu: 100m
@@ -84,4 +61,3 @@ spec:
             limits:
               cpu: 250m
               memory: 256Mi
-      terminationGracePeriodSeconds: 40
