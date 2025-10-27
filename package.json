@@ -27,7 +27,6 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@influxdata/influxdb-client": "^1.35.0",
     "@prisma/client": "^6.17.0",
     "@unipro-tech/node-logger": "^1.0.0",
     "dayjs": "^1.11.11",

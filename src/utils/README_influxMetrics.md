@@ -19,6 +19,3 @@ startBotMetrics(10000);
 
 Notes:
 - Configure INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET via environment variables.
-- The module sends a final "alive=false" metric on process exit.
-- For long-running logging or debugging, you may want to increase the interval to reduce write-load.
-- Do not commit real tokens to source control; use environment variables or a secret manager.

@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import BotClient from './bot/client.js';
 import { createLogger } from './utils/logger.js';
-import { startBotMetrics } from './utils/influxMetrics.js';
 
 const bootstrapLogger = createLogger({ module: 'bootstrap' });
 
@@ -53,13 +52,7 @@ function setupProcessHandlers() {
 async function main() {
   try {
     setupProcessHandlers();
-    // start periodic metrics (interval can be set via METRICS_SEND_INTERVAL_MS)
-    try {
-      const interval = Number(process.env.METRICS_SEND_INTERVAL_MS || 10000);
-      startBotMetrics(interval);
-    } catch (err) {
-      bootstrapLogger.warn({ err }, 'Failed to start bot metrics (continuing startup)');
-    }
+    
 
     const client = new BotClient();
     await client.init();
