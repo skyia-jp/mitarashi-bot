@@ -23,6 +23,14 @@ function setupProcessHandlers() {
       },
       'Unhandled promise rejection'
     );
+    // also print to stderr to ensure visibility in environments where logger may be buffered
+    if (reason instanceof Error) {
+      // eslint-disable-next-line no-console
+      console.error('Unhandled promise rejection:', reason.stack || reason);
+    } else {
+      // eslint-disable-next-line no-console
+      console.error('Unhandled promise rejection (non-error):', reason);
+    }
   });
 
   process.on('uncaughtException', (error) => {
@@ -33,8 +41,12 @@ function setupProcessHandlers() {
       },
       'Uncaught exception'
     );
+    // ensure stack is printed to stderr in addition to structured log
+    // eslint-disable-next-line no-console
+    console.error('Uncaught exception:', error.stack || error);
     process.exitCode = 1;
-    throw error;
+    // terminate gracefully
+    process.exit(1);
   });
 
   const handleTermination = (signal) => {
@@ -44,6 +56,12 @@ function setupProcessHandlers() {
     process.off('SIGINT', handleTermination);
     process.kill(process.pid, signal);
   };
+
+  process.on('exit', (code) => {
+    // eslint-disable-next-line no-console
+    console.error(`Process exiting with code: ${code}`);
+    bootstrapLogger.info({ event: 'process.exit', code }, 'Process exiting');
+  });
 
   process.on('SIGTERM', handleTermination);
   process.on('SIGINT', handleTermination);

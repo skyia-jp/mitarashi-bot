@@ -1,4 +1,7 @@
 import cron from 'node-cron';
+import { createModuleLogger } from '../utils/logger.js';
+
+const logger = createModuleLogger('service:job');
 import {
   getJobByGuildAndType,
   listActiveJobs,
@@ -48,20 +51,33 @@ async function runActivitySummary(client, job) {
 }
 
 function scheduleJob(client, job) {
-  const task = cron.schedule(
-    job.schedule,
-    async () => {
-      if (job.type === 'activity-summary') {
-        await runActivitySummary(client, job);
-      }
-      await updateJobLastRun(job.id).catch(() => null);
-    },
-    {
-      timezone: getTimezone(job)
-    }
-  );
+  if (!job?.schedule || typeof job.schedule !== 'string') {
+    logger.warn({ jobId: job?.id, schedule: job?.schedule }, 'Skipping job with invalid schedule');
+    return;
+  }
 
-  scheduledTasks.set(job.id, task);
+  try {
+    const task = cron.schedule(
+      job.schedule,
+      async () => {
+        try {
+          if (job.type === 'activity-summary') {
+            await runActivitySummary(client, job);
+          }
+          await updateJobLastRun(job.id).catch(() => null);
+        } catch (err) {
+          logger.error({ err, jobId: job.id }, 'Scheduled job execution failed');
+        }
+      },
+      {
+        timezone: getTimezone(job)
+      }
+    );
+
+    scheduledTasks.set(job.id, task);
+  } catch (err) {
+    logger.error({ err, jobId: job?.id, schedule: job?.schedule }, 'Failed to schedule job');
+  }
 }
 
 function stopJob(jobId) {
