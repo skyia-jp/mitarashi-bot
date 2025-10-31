@@ -2,6 +2,7 @@ import {
   createPinnedMessage,
   deletePinnedMessage,
   findPinnedMessageByChannel,
+  listPinnedMessages,
   findPinnedMessageByMessageIds,
   updatePinnedMessage
 } from '../database/repositories/pinnedMessageRepository.js';
