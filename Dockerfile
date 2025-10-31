@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.4
-FROM node:22-trixie AS base
+FROM node:24-trixie AS base
 
 # Debian系: パッケージ更新と必要ツールのインストール
 RUN apt-get update -y && \
