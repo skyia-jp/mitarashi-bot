@@ -17,7 +17,7 @@ spec:
     spec:
       initContainers:
         - name: wait-for-mysql
-          image: busybox:1.36
+          image: node:24-trixie-slim
           command:
             - sh
             - -c
