@@ -32,7 +32,7 @@ spec:
           command:
             - sh
             - -c
-            - npx prisma migrate deploy
+            - bunx --bun prisma migrate deploy
           envFrom:
             - secretRef:
                 name: shiro-bot
