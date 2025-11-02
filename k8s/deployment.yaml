@@ -17,7 +17,7 @@ spec:
     spec:
       initContainers:
         - name: wait-for-mysql
-          image: debian:stable-slim
+          image: node:24-trixie-slim
           command:
             - sh
             - -c
