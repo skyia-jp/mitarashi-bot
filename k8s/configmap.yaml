@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: mitarashi-bot-config
-  namespace: ibuki-mitarashi-bot
+  name: shiro-bot-config
+  namespace: ibuki-shiro-bot
   labels:
-    app: mitarashi-bot
+    app: shiro-bot
 data:
   DEFAULT_TIMEZONE: "Asia/Tokyo"

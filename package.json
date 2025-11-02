@@ -1,13 +1,17 @@
 {
-  "name": "discord-utility-bot",
+  "name": "shiro-bot",
   "version": "1.5.1",
-  "description": "Multi-functional Discord bot with reminders, role selectors, and moderation.",
-  "main": "src/index.js",
+  "description": "Shiro-bot — multi-functional Discord bot (reminders, role selectors, moderation).",
+  "main": "src/index.ts",
   "type": "module",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon --legacy-watch src/index.js",
-    "deploy:commands": "node scripts/deploy-commands.js",
+  "start": "bun src/index.ts",
+  "dev": "bun src/index.ts",
+  "dev:bun": "bun src/index.ts",
+  "dev:node": "bun --loader ts-node/esm src/index.ts",
+  "deploy:commands": "bun scripts/deploy-commands.ts",
+  "deploy:commands:tsnode": "node --loader ts-node/esm scripts/deploy-commands.ts",
+  "typecheck": "tsc -p tsconfig.json --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
@@ -49,6 +53,9 @@
     "eslint-plugin-n": "^17.9.0",
     "eslint-plugin-promise": "^6.0.1",
     "nodemon": "^3.1.4",
-    "prisma": "^6.17.0"
+    "prisma": "^6.17.0",
+    "typescript": "^5.3.0",
+    "@types.node": "^20.8.0",
+    "ts-node": "^10.9.1"
   }
 }

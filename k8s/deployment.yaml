@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mitarashi-bot
-  namespace: ibuki-mitarashi-bot
+  name: shiro-bot
+  namespace: ibuki-shiro-bot
   labels:
-    app: mitarashi-bot
+    app: shiro-bot
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: mitarashi-bot
+      app: shiro-bot
   template:
     metadata:
       labels:
-        app: mitarashi-bot
+        app: shiro-bot
     spec:
       initContainers:
         - name: wait-for-mysql
@@ -22,24 +22,24 @@ spec:
             - sh
             - -c
             - >-
-              until nc -zvw3 mitarashi-db 3306; do
+              until nc -zvw3 shiro-db 3306; do
                 echo "waiting for MySQL";
                 sleep 3;
               done
         - name: prisma-migrate
-          image: kemar1/mitarashi-bot:latest
+          image: kemar1/shiro-bot:latest
           command:
             - sh
             - -c
             - npx prisma migrate deploy
           envFrom:
             - secretRef:
-                name: mitarashi-bot
+                name: shiro-bot
             - configMapRef:
-                name: mitarashi-bot-config
+                name: shiro-bot-config
       containers:
         - name: bot
-          image: kemar1/mitarashi-bot:latest
+          image: kemar1/shiro-bot:latest
           imagePullPolicy: Always
           command:
             - sh
@@ -47,17 +47,17 @@ spec:
             - >-
               npx prisma generate &&
               npx prisma migrate deploy &&
-              npm run deploy:commands &&
-              npm start
+              bun run deploy:commands &&
+              bun start
           envFrom:
             - secretRef:
-                name: mitarashi-bot
+                name: shiro-bot
             - configMapRef:
-                name: mitarashi-bot-config
+                name: shiro-bot-config
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 300m
+              memory: 512Mi
             limits:
-              cpu: 250m
-              memory: 256Mi
+              cpu: 500m
+              memory: 1Gi

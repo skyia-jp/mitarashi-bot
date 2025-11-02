@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: mitarashi-db
-  namespace: ibuki-mitarashi-bot
+  name: shiro-db
+  namespace: ibuki-shiro-bot
 spec:
-  serviceName: mitarashi-db
+  serviceName: shiro-db
   replicas: 1
   selector:
     matchLabels:
-      app: mitarashi-db
+      app: shiro-db
   template:
     metadata:
       labels:
-        app: mitarashi-db
+        app: shiro-db
     spec:
       containers:
         - name: mysql
@@ -21,7 +21,7 @@ spec:
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: mitarashi-bot
+                  name: shiro-bot
                   key: DB_PASSWORD
             - name: MYSQL_DATABASE
               value: discord_bot
@@ -30,7 +30,7 @@ spec:
             - name: MYSQL_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: mitarashi-bot
+                  name: shiro-bot
                   key: DB_PASSWORD
           ports:
             - containerPort: 3306
