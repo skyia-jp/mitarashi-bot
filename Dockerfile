@@ -1,31 +1,35 @@
 # syntax=docker/dockerfile:1.4
-FROM node:24-trixie-slim AS base
 
-# 必要パッケージ
+# Builder: use Node to run npm ci and generate Prisma client (devDependencies needed)
+FROM node:24-trixie-slim AS builder
+
+# 必要パッケージ（curl は npx 等で使う可能性があるため）
 RUN apt-get update -y && \
-    apt-get install -y --no-install-recommends curl unzip openssl && \
+    apt-get install -y --no-install-recommends bash curl unzip openssl && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Bun インストール
-RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:$PATH"
+# 依存だけ先にインストール（package-lock.json があれば決定論的）
+COPY package*.json package-lock.json* ./
+RUN npm ci --prefer-offline --no-audit --no-fund
 
-# パッケージインストール（開発依存も含めて一旦インストールして prisma などを使えるようにする）
-COPY package*.json bun.lockb* ./
-RUN bun install
-
-# アプリ本体コピー
+# アプリ本体コピーして prisma client を生成
 COPY . .
+RUN npx prisma generate
 
-# Prismaクライアント生成
-# prisma CLI は devDependency に含まれることがあるため、dev 依存を含めて生成する
-RUN bun prisma generate
+
+# Runtime: use official oven/bun image for running Bun-based app
+FROM oven/bun:1 AS runtime
+WORKDIR /app
+
+# Copy node_modules and app files from builder
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app .
 
 # 本番環境設定
 ENV NODE_ENV=production
 
 # コンテナ起動時にマイグレーション＆Bot起動
-# 本番用に事前ビルドしていない場合は Bun が直接 .ts を実行します。
 CMD ["sh", "-c", "bun prisma migrate deploy && bun run deploy:commands && bun start"]

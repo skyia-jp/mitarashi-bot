@@ -55,7 +55,7 @@
     "nodemon": "^3.1.4",
     "prisma": "^6.17.0",
     "typescript": "^5.3.0",
-    "@types.node": "^20.8.0",
+    "@types/node": "^20.8.0",
     "ts-node": "^10.9.1"
   }
 }
