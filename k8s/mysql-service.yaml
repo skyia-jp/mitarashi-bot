@@ -5,7 +5,7 @@ metadata:
   namespace: ibuki-shiro-bot
 spec:
   selector:
-    app: Shiro-db
+    app: shiro-db
   ports:
     - port: 3306
       targetPort: 3306
