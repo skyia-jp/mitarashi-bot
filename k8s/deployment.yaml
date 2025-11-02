@@ -23,9 +23,9 @@ spec:
             - -c
             - |
               apt-get update && apt-get install -y netcat-openbsd &&
-              until nc -xvw3 shiro-db 3306; do
-                echo "Waiting for MySQL...";
-                sleep 3;
+              until nc -z -v -w 3 shiro-db 3306; do
+                echo "Waiting for MySQL..."
+                sleep 3
               done
         - name: prisma-migrate
           image: kemar1/shiro-bot:latest
