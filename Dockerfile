@@ -1,35 +1,48 @@
 # syntax=docker/dockerfile:1.4
 
-# Builder: use Node to run npm ci and generate Prisma client (devDependencies needed)
+# ----------------------------
+# Builder Stage (Node)
+# ----------------------------
 FROM node:24-trixie-slim AS builder
 
-# 必要パッケージ（curl は npx 等で使う可能性があるため）
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends bash curl unzip openssl && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# 依存だけ先にインストール（package-lock.json があれば決定論的）
+# 依存インストール
 COPY package*.json package-lock.json* ./
 RUN npm ci --prefer-offline --no-audit --no-fund
 
-# アプリ本体コピーして prisma client を生成
+# Prisma Client 生成
 COPY . .
 RUN npx prisma generate
 
 
-# Runtime: use official oven/bun image for running Bun-based app
+# ----------------------------
+# Runtime Stage (Bun)
+# ----------------------------
 FROM oven/bun:1 AS runtime
 WORKDIR /app
 
-# Copy node_modules and app files from builder
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app .
+# Bun環境でもMySQL待機に必要なnetcatを追加
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends netcat-openbsd && \
+    rm -rf /var/lib/apt/lists/*
 
-# 本番環境設定
+# ビルド成果物をコピー
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./ 
+COPY --from=builder /app . 
+
+# 環境設定
 ENV NODE_ENV=production
 
-# コンテナ起動時にマイグレーション＆Bot起動
+# Bun起動前にMySQL待機スクリプトを実行（もし用意している場合）
+# 例: wait-for-mysql.sh があればこのように書く
+# COPY scripts/wait-for-mysql.sh /usr/local/bin/wait-for-mysql.sh
+# RUN chmod +x /usr/local/bin/wait-for-mysql.sh
+
+# CMDでマイグレーション・コマンドデプロイ・Bot起動
 CMD ["sh", "-c", "bun prisma migrate deploy && bun run deploy:commands && bun start"]
