@@ -46,8 +46,8 @@ spec:
             - sh
             - -c
             - >-
-              npx prisma generate &&
-              npx prisma migrate deploy &&
+              bunx --bun prisma generate &&
+              bunx --bun prisma migrate deploy &&
               bun run deploy:commands &&
               bun start
           envFrom:
