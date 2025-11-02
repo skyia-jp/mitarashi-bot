@@ -17,13 +17,14 @@ spec:
     spec:
       initContainers:
         - name: wait-for-mysql
-          image: node:24-trixie-slim
+          image: debian:stable-slim
           command:
             - sh
             - -c
-            - >-
-              until nc -zvw3 shiro-db 3306; do
-                echo "waiting for MySQL";
+            - |
+              apt-get update && apt-get install -y netcat &&
+              until nc -xvw3 shiro-db 3306; do
+                echo "Waiting for MySQL...";
                 sleep 3;
               done
         - name: prisma-migrate
