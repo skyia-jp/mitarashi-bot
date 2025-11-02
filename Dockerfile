@@ -1,44 +1,29 @@
 # syntax=docker/dockerfile:1.4
 
 # ----------------------------
-# Builder Stage (Node)
+# Build Stage (Bun)
 # ----------------------------
-FROM node:24-trixie-slim AS builder
-
-RUN apt-get update -y && \
-    apt-get install -y --no-install-recommends bash curl unzip openssl && \
-    rm -rf /var/lib/apt/lists/*
-
+FROM oven/bun:slim AS builder
 WORKDIR /app
 
-# 依存インストール
-COPY package*.json package-lock.json* ./
-RUN npm ci --prefer-offline --no-audit --no-fund
-
-# Prisma Client 生成
 COPY . .
-RUN npx prisma generate
+RUN bun install --production=false
 
 # ----------------------------
-# Runtime Stage (Bun / Debian)
+# Runtime Stage
 # ----------------------------
-FROM node:24-trixie-slim AS runtime
+FROM oven/bun:slim AS runtime
 WORKDIR /app
 
-# 必要パッケージをaptで追加
 RUN apt-get update -y && \
-    apt-get install -y --no-install-recommends netcat-openbsd bash curl && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends netcat-openbsd bash curl
 
-# Bunインストール
-RUN npm install -g bun && \
-    bun --version
-
-# ビルド成果物をコピー
+# 必要なファイルだけコピー
+COPY --from=builder /app/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package*.json ./ 
-COPY --from=builder /app . 
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/src ./src
 
 ENV NODE_ENV=production
 
-CMD ["sh", "-c", "npx prisma migrate deploy && bun run deploy:commands && bun start"]
+CMD ["sh", "-c", "bunx --bun prisma migrate deploy && bun run deploy:commands && bun start"]
