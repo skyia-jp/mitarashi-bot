@@ -5,37 +5,20 @@ import type { Client, Interaction, SelectMenuInteraction, ButtonInteraction, Mod
 export default {
   name: 'interactionCreate',
   async execute(client: Client, interaction: Interaction) {
-    // Log receipt using structured logger
-    try {
-      const recvLogger = buildInteractionLogger(interaction as any);
-      recvLogger.debug({ event: 'interaction.received' }, 'Received interaction');
-    } catch (e) {
-      // ignore logging errors
-    }
     if (interaction.isChatInputCommand?.()) {
       const cmd = interaction as ChatInputCommandInteraction;
-  const command = client.commands?.get(cmd.commandName);
+      const command = client.commands?.get(cmd.commandName);
+      
       if (!command) {
         const missingLogger = buildInteractionLogger(cmd, { command: cmd.commandName }, { reason: 'missing_command' });
-        missingLogger.debug({ event: 'interaction.command.missing' }, 'Command handler not found');
-      } else {
-        const foundLogger = buildInteractionLogger(cmd, { command: cmd.commandName });
-        foundLogger.debug({ event: 'interaction.command.invoke' }, 'Invoking command handler');
-      }
-      if (!command) {
-        const missingLogger = buildInteractionLogger(
-          cmd,
-          { command: cmd.commandName },
-          { reason: 'missing_command' }
-        );
         missingLogger.warn({ event: 'interaction.command.missing' }, 'Received unknown slash command');
-        await recordSlashCommandOutcome(cmd, {
+        recordSlashCommandOutcome(cmd, {
           status: 'warning',
           durationMs: 0,
           subcommand_group: null,
           subcommand: null,
           error: 'Missing slash command handler'
-        });
+        }).catch(() => {});
         return;
       }
 
@@ -48,7 +31,6 @@ export default {
       });
 
       const startedAt = Date.now();
-      commandLogger.info({ event: 'interaction.command.start' }, 'Handling slash command');
 
       try {
         await command.execute(client, cmd);
@@ -60,12 +42,12 @@ export default {
           },
           'Slash command executed successfully'
         );
-        await recordSlashCommandOutcome(cmd, {
+        recordSlashCommandOutcome(cmd, {
           status: 'success',
           durationMs: successDurationMs,
           subcommandGroup,
           subcommand
-        });
+        }).catch(() => {});
       } catch (error) {
         const failureDurationMs = Date.now() - startedAt;
         commandLogger.error(
@@ -81,13 +63,13 @@ export default {
         } else {
           await cmd.reply({ content: 'コマンド実行中にエラーが発生しました。', ephemeral: true });
         }
-        await recordSlashCommandOutcome(cmd, {
+        recordSlashCommandOutcome(cmd, {
           status: 'failure',
           durationMs: failureDurationMs,
           subcommandGroup,
           subcommand,
           error
-        });
+        }).catch(() => {});
       }
       return;
     }
@@ -99,12 +81,12 @@ export default {
       (interaction as SelectMenuInteraction | ButtonInteraction | ModalSubmitInteraction).isModalSubmit?.()
     ) {
       const comp = interaction as SelectMenuInteraction | ButtonInteraction | ModalSubmitInteraction;
-  let handler = client.componentHandlers?.get(comp.customId);
+      let handler = client.componentHandlers?.get(comp.customId);
 
       let dynamicKey: string | undefined;
       if (!handler && comp.customId.includes(':')) {
         dynamicKey = comp.customId.split(':')[0];
-  handler = client.componentHandlers?.get(dynamicKey);
+        handler = client.componentHandlers?.get(dynamicKey);
       }
 
       if (!handler) {
@@ -123,7 +105,6 @@ export default {
       });
 
       const startedAt = Date.now();
-      componentLogger.info({ event: 'interaction.component.start' }, 'Handling component interaction');
 
       try {
         await handler.execute(client, comp);

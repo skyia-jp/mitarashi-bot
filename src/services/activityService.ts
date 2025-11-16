@@ -1,112 +1,128 @@
 import dayjs from 'dayjs';
 import prisma from '../database/client.js';
+import { createModuleLogger } from '../utils/logger.js';
+
+const logger = createModuleLogger('services:activityService');
 
 const voiceSessionMap = new Map<string, number>();
+
+// メモリキャッシュ: guildId:userId:date -> { messageCount, voiceMinutes }
+const activityCache = new Map<string, { messageCount: number; voiceMinutes: number }>();
+let flushTimer: NodeJS.Timeout | null = null;
+const FLUSH_INTERVAL_MS = 5 * 60 * 1000; // 5分ごとにフラッシュ
 
 function getActivityDate(): Date {
   const now = new Date();
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
 
-type UpsertArgs = {
-  guildId: string;
-  userId: number;
-  date: Date;
-  updateData: any;
-  createData: any;
-};
+function getCacheKey(guildId: string, userId: string, date: Date): string {
+  return `${guildId}::${userId}::${date.toISOString()}`;
+}
 
-async function upsertActivityRecord({ guildId, userId, date, updateData, createData }: UpsertArgs) {
-  try {
-    return await prisma.activityRecord.upsert({
+export async function recordMessageActivity(guildId: string, userId: string) {
+  const date = getActivityDate();
+  const key = getCacheKey(guildId, userId, date);
+  
+  const cached = activityCache.get(key) ?? { messageCount: 0, voiceMinutes: 0 };
+  cached.messageCount += 1;
+  activityCache.set(key, cached);
+  
+  scheduleFlush();
+}
+
+function scheduleFlush() {
+  if (flushTimer) return;
+  
+  flushTimer = setTimeout(() => {
+    flushTimer = null;
+    flushActivityCache().catch((err) => {
+      logger.error({ err }, 'Failed to flush activity cache');
+    });
+  }, FLUSH_INTERVAL_MS);
+}
+
+async function flushActivityCache() {
+  if (activityCache.size === 0) return;
+  
+  const entries = Array.from(activityCache.entries());
+  activityCache.clear();
+  
+  logger.info({ count: entries.length }, 'Flushing activity cache to database');
+  
+  const operations = entries.map(([key, data]) => {
+    const parts = key.split('::');
+    const guildId = parts[0];
+    const discordUserId = parts[1];
+    const dateStr = parts[2];
+    const date = new Date(dateStr);
+    
+    return prisma.activityRecord.upsert({
       where: {
-        guildId_userId_date: {
-          guildId,
-          userId,
-          date
-        }
+        guildId_discordUserId_date: { guildId, discordUserId, date }
       },
       update: {
-        ...updateData,
+        messageCount: { increment: data.messageCount },
+        voiceMinutes: { increment: data.voiceMinutes },
         lastUpdated: new Date()
       },
       create: {
         guildId,
-        userId,
+        discordUserId,
         date,
-        ...createData,
+        messageCount: data.messageCount,
+        voiceMinutes: data.voiceMinutes,
         lastUpdated: new Date()
       }
-    });
-  } catch (error: any) {
-    if (error?.code === 'P2002') {
-      return prisma.activityRecord.update({
-        where: {
-          guildId_userId_date: {
-            guildId,
-            userId,
-            date
+    }).catch((err: any) => {
+      if (err?.code === 'P2002') {
+        return prisma.activityRecord.update({
+          where: { guildId_discordUserId_date: { guildId, discordUserId, date } },
+          data: {
+            messageCount: { increment: data.messageCount },
+            voiceMinutes: { increment: data.voiceMinutes },
+            lastUpdated: new Date()
           }
-        },
-        data: {
-          ...updateData,
-          lastUpdated: new Date()
-        }
-      });
-    }
-    throw error;
-  }
-}
-
-export async function recordMessageActivity(guildId: string, userId: number) {
-  const date = getActivityDate();
-  await upsertActivityRecord({
-    guildId,
-    userId,
-    date,
-    updateData: {
-      messageCount: {
-        increment: 1
+        });
       }
-    },
-    createData: {
-      messageCount: 1,
-      voiceMinutes: 0
-    }
+      throw err;
+    });
   });
+  
+  await Promise.allSettled(operations);
 }
 
-export function startVoiceSession(guildId: string, userId: number) {
-  voiceSessionMap.set(`${guildId}:${userId}`, Date.now());
+export function startVoiceSession(guildId: string, userId: string) {
+  voiceSessionMap.set(`${guildId}::${userId}`, Date.now());
 }
 
-export async function endVoiceSession(guildId: string, userId: number) {
-  const key = `${guildId}:${userId}`;
+export async function endVoiceSession(guildId: string, userId: string) {
+  const key = `${guildId}::${userId}`;
   const startedAt = voiceSessionMap.get(key);
   if (!startedAt) return;
   voiceSessionMap.delete(key);
+  
   const minutes = Math.max(1, Math.round((Date.now() - startedAt) / 60000));
   const date = getActivityDate();
-  await upsertActivityRecord({
-    guildId,
-    userId,
-    date,
-    updateData: {
-      voiceMinutes: {
-        increment: minutes
-      }
-    },
-    createData: {
-      messageCount: 0,
-      voiceMinutes: minutes
-    }
-  });
+  const cacheKey = getCacheKey(guildId, userId, date);
+  
+  const cached = activityCache.get(cacheKey) ?? { messageCount: 0, voiceMinutes: 0 };
+  cached.voiceMinutes += minutes;
+  activityCache.set(cacheKey, cached);
+  
+  scheduleFlush();
 }
 
 export async function getActivityLeaderboard(guildId: string, days = 7, limit = 10) {
-  const since = dayjs().subtract(days - 1, 'day').startOf('day').toDate();
+  // 最新データを反映するためフラッシュ
+  await flushActivityCache();
+  
+  // UTC基準で日付範囲を計算
+  const now = new Date();
+  const since = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (days - 1)));
+  
   const records = await prisma.activityRecord.groupBy({
-    by: ['userId'],
+    by: ['discordUserId'],
     where: {
       guildId,
       date: {
@@ -125,16 +141,19 @@ export async function getActivityLeaderboard(guildId: string, days = 7, limit = 
     take: limit
   });
 
-  const userIds = records.map((r: any) => r.userId);
-  const users = await prisma.user.findMany({
-    where: { id: { in: userIds } }
-  });
-
-  const userMap = new Map(users.map((user: any) => [user.id, user]));
-
   return records.map((record: any) => ({
-    user: userMap.get(record.userId),
+    discordUserId: record.discordUserId,
     messageCount: record._sum.messageCount ?? 0,
     voiceMinutes: record._sum.voiceMinutes ?? 0
   }));
+}
+
+// Graceful shutdown時にキャッシュをフラッシュ
+export async function shutdownActivityService() {
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  await flushActivityCache();
+  logger.info('Activity service shutdown complete');
 }

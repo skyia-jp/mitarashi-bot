@@ -1,7 +1,6 @@
 import type { Client, Message } from 'discord.js';
 import { refreshPinnedMessagePosition } from '../../services/pinService.js';
 import { recordMessageActivity } from '../../services/activityService.js';
-import { getOrCreateUser } from '../../database/repositories/userRepository.js';
 import { createModuleLogger } from '../../utils/logger.js';
 
 const logger = createModuleLogger('events:messageCreate');
@@ -26,6 +25,11 @@ export default {
       logger.debug({ err }, 'refreshPinnedMessagePosition error');
     });
 
+    // 全メッセージのアクティビティを記録
+    recordMessageActivity(message.guild.id, message.author.id).catch((err) => {
+      logger.error({ err }, 'recordMessageActivity failed');
+    });
+
     const botId = client.user?.id;
     const isBotMention = Boolean(botId && message.mentions?.users?.has && message.mentions.users.has(botId));
 
@@ -34,17 +38,5 @@ export default {
     const isCommand = content.startsWith(prefix);
 
     if (!isBotMention && !isCommand) return;
-
-    let user;
-    try {
-      user = await getOrCreateUser(message.author);
-    } catch (err) {
-      logger.error({ err }, 'getOrCreateUser failed');
-      return;
-    }
-
-    recordMessageActivity(message.guild.id, user.id).catch((err) => {
-      logger.error({ err }, 'recordMessageActivity failed');
-    });
   }
 };

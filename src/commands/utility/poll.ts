@@ -1,4 +1,4 @@
-import { PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
+import { PermissionFlagsBits, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import {
   attachPollMessageId,
   buildPollEmbed,
@@ -136,7 +136,10 @@ export default {
       const options = collectOptions(interaction);
 
       if (options.length < 2) {
-        await interaction.editReply({ content: '選択肢は最低2つ必要です。' });
+        const embed = new EmbedBuilder()
+          .setColor(0xff0000)
+          .setDescription('❌ 選択肢は最低2つ必要です。');
+        await interaction.editReply({ embeds: [embed] });
         return;
       }
 
@@ -148,7 +151,11 @@ export default {
       const pollMessage = await interaction.channel.send({ embeds: [embed], components: [row] });
       await attachPollMessageId(poll.id, pollMessage.id);
 
-      await interaction.editReply({ content: `投票を作成しました。メッセージID: ${pollMessage.id}` });
+      const confirmEmbed = new EmbedBuilder()
+        .setColor(0x00ff00)
+        .setTitle('📋 投票作成')
+        .setDescription(`投票を作成しました。メッセージID: ${pollMessage.id}`);
+      await interaction.editReply({ embeds: [confirmEmbed] });
       return;
     }
 
@@ -168,7 +175,10 @@ export default {
 
         if (!polls.length) {
           listLogger.info({ event: 'poll.list.empty' }, 'No polls found for guild');
-          await interaction.editReply({ content: '登録済みの投票はありません。' });
+          const embed = new EmbedBuilder()
+            .setColor(0x95a5a6)
+            .setDescription('登録済みの投票はありません。');
+          await interaction.editReply({ embeds: [embed] });
           return;
         }
 
@@ -205,7 +215,10 @@ export default {
         await interaction.editReply({ embeds: [embed] });
       } catch (error: any) {
         listLogger.error({ err: error, event: 'poll.list.error' }, 'Failed to fetch poll list');
-        await interaction.editReply({ content: '投票一覧の取得に失敗しました。後で再度お試しください。' });
+        const embed = new EmbedBuilder()
+          .setColor(0xff0000)
+          .setDescription('❌ 投票一覧の取得に失敗しました。後で再度お試しください。');
+        await interaction.editReply({ embeds: [embed] });
       }
 
       return;
@@ -215,7 +228,10 @@ export default {
     const poll = await getPollByMessageId(messageId);
 
     if (!poll) {
-      await interaction.reply({ content: '指定した投票が見つかりません。', ephemeral: true });
+      const embed = new EmbedBuilder()
+        .setColor(0xff0000)
+        .setDescription('❌ 指定した投票が見つかりません。');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
       return;
     }
 
@@ -231,7 +247,11 @@ export default {
         await message.edit({ embeds: [embed], components: [row] });
       }
 
-      await interaction.editReply({ content: '投票を締め切りました。' });
+      const confirmEmbed = new EmbedBuilder()
+        .setColor(0x00ff00)
+        .setTitle('✅ 投票締め切り')
+        .setDescription('投票を締め切りました。');
+      await interaction.editReply({ embeds: [confirmEmbed] });
       return;
     }
 

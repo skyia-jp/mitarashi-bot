@@ -86,7 +86,6 @@ model User {
   notes               Note[]               @relation("NoteAuthor")
   tasksCreated        Task[]               @relation("TaskCreator")
   tasksAssigned       Task[]               @relation("TaskAssignee")
-  activityRecords     ActivityRecord[]     @relation("ActivityUser")
   gameBiases          GameBias[]
   currencyBalances    CurrencyBalance[]
   currencyTransactions CurrencyTransaction[]
@@ -266,15 +265,15 @@ model Task {
 model ActivityRecord {
   id           Int      @id @default(autoincrement())
   guildId      String
-  userId       Int
+  discordUserId String  // Discord IDを直接格納
   date         DateTime
   messageCount Int      @default(0)
   voiceMinutes Int      @default(0)
   lastUpdated  DateTime @default(now())
   guild        Guild    @relation(fields: [guildId], references: [id])
-  user         User     @relation("ActivityUser", fields: [userId], references: [id])
 
-  @@unique([guildId, userId, date])
+  @@unique([guildId, discordUserId, date])
+  @@index([guildId, date])
 }
 
 model ScheduledJob {

@@ -1,4 +1,4 @@
-import { PermissionFlagsBits, SlashCommandBuilder, Client, ChatInputCommandInteraction } from 'discord.js';
+import { PermissionFlagsBits, SlashCommandBuilder, Client, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 import ms from 'ms';
 import { canModerate, getLogChannel, logAction } from '../../services/moderationService.js';
 import { getOrCreateUser } from '../../database/repositories/userRepository.js';
@@ -18,18 +18,27 @@ export default {
     const reason = interaction.options.getString('reason') || '理由は指定されていません';
 
     if (!targetMember) {
-      await interaction.reply({ content: '指定したメンバーが見つかりません。', ephemeral: true }).catch(() => null);
+      const embed = new EmbedBuilder()
+        .setColor(0xff0000)
+        .setDescription('❌ 指定したメンバーが見つかりません。');
+      await interaction.reply({ embeds: [embed], ephemeral: true }).catch(() => null);
       return;
     }
 
     if (!canModerate(interaction.member, targetMember)) {
-      await interaction.reply({ content: 'このユーザーをミュートする権限がありません。', ephemeral: true }).catch(() => null);
+      const embed = new EmbedBuilder()
+        .setColor(0xff0000)
+        .setDescription('❌ このユーザーをミュートする権限がありません。');
+      await interaction.reply({ embeds: [embed], ephemeral: true }).catch(() => null);
       return;
     }
 
     const durationMs = ms(durationInput);
     if (!durationMs || durationMs < 1000 || durationMs > 28 * 24 * 60 * 60 * 1000) {
-      await interaction.reply({ content: '有効な期間を指定してください (1s〜28d)。', ephemeral: true }).catch(() => null);
+      const embed = new EmbedBuilder()
+        .setColor(0xff0000)
+        .setDescription('❌ 有効な期間を指定してください (1s〜28d)。');
+      await interaction.reply({ embeds: [embed], ephemeral: true }).catch(() => null);
       return;
     }
 
@@ -48,9 +57,16 @@ export default {
         await logChannel.send({ embeds: [ { title: '🔇 ユーザーをタイムアウトしました', description: `ユーザー: ${targetMember.user.tag}\n期間: ${durationInput}\nモデレーター: ${interaction.user.tag}\n理由: ${reason}`, color: 0x3498db, timestamp: new Date().toISOString() } ] }).catch(() => null);
       }
 
-      await interaction.editReply({ content: `${targetMember.user.tag} を ${durationInput} ミュートしました。` }).catch(() => null);
+      const embed = new EmbedBuilder()
+        .setColor(0x3498db)
+        .setTitle('🔇 タイムアウト')
+        .setDescription(`${targetMember.user.tag} を ${durationInput} ミュートしました。`);
+      await interaction.editReply({ embeds: [embed] }).catch(() => null);
     } catch (err: any) {
-      await interaction.editReply({ content: err?.message ?? 'ミュートに失敗しました。' }).catch(() => null);
+      const embed = new EmbedBuilder()
+        .setColor(0xff0000)
+        .setDescription(`❌ ${err?.message ?? 'ミュートに失敗しました。'}`);
+      await interaction.editReply({ embeds: [embed] }).catch(() => null);
     }
   }
 };

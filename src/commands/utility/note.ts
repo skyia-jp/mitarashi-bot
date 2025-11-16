@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, Client, ChatInputCommandInteraction, User } from 'discord.js';
+import { SlashCommandBuilder, Client, ChatInputCommandInteraction, User, EmbedBuilder } from 'discord.js';
 import { addNote, getNotes, removeNote } from '../../services/noteService.js';
 import { getOrCreateUser } from '../../database/repositories/userRepository.js';
 
@@ -46,7 +46,11 @@ export default {
     if (subcommand === 'add') {
       const content = interaction.options.getString('content', true);
       await addNote(interaction, content);
-      await interaction.reply({ content: '📝 メモを追加しました。', ephemeral: true });
+      const embed = new EmbedBuilder()
+        .setColor(0x00ff00)
+        .setTitle('📝 メモ追加')
+        .setDescription('メモを追加しました。');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
       return;
     }
 
@@ -78,9 +82,16 @@ export default {
     const noteId = interaction.options.getInteger('note_id', true);
     const result = await removeNote(interaction.guildId as string, noteId);
     if (result.count === 0) {
-      await interaction.reply({ content: '指定したメモは見つかりませんでした。', ephemeral: true });
+      const embed = new EmbedBuilder()
+        .setColor(0xff0000)
+        .setDescription('❌ 指定したメモは見つかりませんでした。');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
       return;
     }
-    await interaction.reply({ content: '🗑️ メモを削除しました。', ephemeral: true });
+    const embed = new EmbedBuilder()
+      .setColor(0xe74c3c)
+      .setTitle('🗑️ メモ削除')
+      .setDescription('メモを削除しました。');
+    await interaction.reply({ embeds: [embed], ephemeral: true });
   }
 };

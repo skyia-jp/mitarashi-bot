@@ -1,4 +1,4 @@
-import { PermissionFlagsBits, SlashCommandBuilder, Client, ChatInputCommandInteraction } from 'discord.js';
+import { PermissionFlagsBits, SlashCommandBuilder, Client, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 import { canModerate, resetUserWarnings } from '../../services/moderationService.js';
 
 export default {
@@ -16,12 +16,18 @@ export default {
       const reason = interaction.options.getString('reason')?.trim() || '警告ポイントの初期化';
 
       if (!targetMember) {
-        await interaction.editReply({ content: '指定したユーザーが見つかりませんでした。' }).catch(() => null);
+        const embed = new EmbedBuilder()
+          .setColor(0xff0000)
+          .setDescription('❌ 指定したユーザーが見つかりませんでした。');
+        await interaction.editReply({ embeds: [embed] }).catch(() => null);
         return;
       }
 
       if (!canModerate(interaction.member, targetMember)) {
-        await interaction.editReply({ content: 'このユーザーの警告を初期化する権限がありません。' }).catch(() => null);
+        const embed = new EmbedBuilder()
+          .setColor(0xff0000)
+          .setDescription('❌ このユーザーの警告を初期化する権限がありません。');
+        await interaction.editReply({ embeds: [embed] }).catch(() => null);
         return;
       }
 
@@ -60,9 +66,17 @@ export default {
         ]
       }).catch(() => null);
 
-      await interaction.editReply({ content: `${targetMember} の警告を初期化しました。削除件数: ${clearedCount}件` }).catch(() => null);
+      const embed = new EmbedBuilder()
+        .setColor(getSeverityColor(afterSummary.totalPoints))
+        .setTitle('♻️ 警告初期化')
+        .setDescription(`${targetMember} の警告を初期化しました。`)
+        .addFields({ name: '削除件数', value: `${clearedCount}件` });
+      await interaction.editReply({ embeds: [embed] }).catch(() => null);
     } catch (err: any) {
-      await interaction.editReply({ content: err?.message ?? '警告の初期化に失敗しました。' }).catch(() => null);
+      const embed = new EmbedBuilder()
+        .setColor(0xff0000)
+        .setDescription(`❌ ${err?.message ?? '警告の初期化に失敗しました。'}`);
+      await interaction.editReply({ embeds: [embed] }).catch(() => null);
     }
   }
 };

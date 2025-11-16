@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, Client, ChatInputCommandInteraction, GuildMember } from 'discord.js';
+import { SlashCommandBuilder, Client, ChatInputCommandInteraction, GuildMember, EmbedBuilder } from 'discord.js';
 import { handlePasswordSubmission } from '../../services/passwordGrantService.js';
 
 export default {
@@ -23,10 +23,16 @@ export default {
 
     try {
       const result = await handlePasswordSubmission(interaction.guild, member as GuildMember, password);
-      await interaction.editReply({ content: result.message }).catch(() => null);
+      const embed = new EmbedBuilder()
+        .setColor(result.success ? 0x00ff00 : 0xff0000)
+        .setDescription(result.message);
+      await interaction.editReply({ embeds: [embed] }).catch(() => null);
     } catch (err: any) {
       // If service throws, return a friendly message
-      await interaction.editReply({ content: err?.message ?? 'エラーが発生しました。' }).catch(() => null);
+      const embed = new EmbedBuilder()
+        .setColor(0xff0000)
+        .setDescription(err?.message ?? '❌ エラーが発生しました。');
+      await interaction.editReply({ embeds: [embed] }).catch(() => null);
     }
   }
 };

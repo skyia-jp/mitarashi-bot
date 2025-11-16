@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { registerReminder, cancelReminder } from '../../services/reminderService.js';
 import { listRemindersByUser } from '../../database/repositories/reminderRepository.ts';
 import { DEFAULT_TIMEZONE } from '../../config/constants.js';
@@ -58,15 +58,17 @@ export default {
           timezone
         });
 
-        await interaction.reply({
-          content: `⏰ リマインダーを登録しました。ID: ${reminder.id}`,
-          ephemeral: true
-        });
+        const embed = new EmbedBuilder()
+          .setColor(0x00ff00)
+          .setTitle('⏰ リマインダー登録')
+          .setDescription(`リマインダーを登録しました。ID: ${reminder.id}`);
+        await interaction.reply({ embeds: [embed], ephemeral: true });
       } catch (error: any) {
-        await interaction.reply({
-          content: `cron 表記が正しいか確認してください。詳細: ${error.message}`,
-          ephemeral: true
-        });
+        const embed = new EmbedBuilder()
+          .setColor(0xff0000)
+          .setTitle('❌ エラー')
+          .setDescription(`cron 表記が正しいか確認してください。詳細: ${error.message}`);
+        await interaction.reply({ embeds: [embed], ephemeral: true });
       }
       return;
     }
@@ -75,9 +77,16 @@ export default {
       const id = interaction.options.getInteger('id', true);
       try {
         await cancelReminder(id);
-        await interaction.reply({ content: `🗑️ リマインダー ID ${id} を削除しました。`, ephemeral: true });
+        const embed = new EmbedBuilder()
+          .setColor(0xe74c3c)
+          .setTitle('🗑️ リマインダー削除')
+          .setDescription(`リマインダー ID ${id} を削除しました。`);
+        await interaction.reply({ embeds: [embed], ephemeral: true });
       } catch (error) {
-        await interaction.reply({ content: 'リマインダーの削除に失敗しました。', ephemeral: true });
+        const embed = new EmbedBuilder()
+          .setColor(0xff0000)
+          .setDescription('❌ リマインダーの削除に失敗しました。');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
       }
       return;
     }
@@ -85,7 +94,10 @@ export default {
     if (subcommand === 'list') {
       const reminders = await listRemindersByUser(interaction.guildId, interaction.user.id);
       if (!reminders.length) {
-        await interaction.reply({ content: '登録済みのリマインダーはありません。', ephemeral: true });
+        const embed = new EmbedBuilder()
+          .setColor(0x95a5a6)
+          .setDescription('登録済みのリマインダーはありません。');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
         return;
       }
 

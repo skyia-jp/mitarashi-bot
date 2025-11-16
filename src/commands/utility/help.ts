@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, Client, Collection, ChatInputCommandInteraction } from 'discord.js';
+import { SlashCommandBuilder, Client, Collection, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 
 const ADMIN_COMMANDS = new Set(['job', 'role-menu', 'server', 'set-log-channel']);
 const MODERATION_COMMANDS = new Set(['ban', 'kick', 'mute', 'warn', 'warn-reset']);
@@ -172,9 +172,10 @@ export default {
     if (target) {
       const command = client.commands.get(target);
       if (!command) {
-        await interaction.editReply({
-          content: `⚠️ \`/${target}\` は見つかりませんでした。もう一度確認してください。`
-        });
+        const embed = new EmbedBuilder()
+          .setColor(0xff0000)
+          .setDescription(`⚠️ \`/${target}\` は見つかりませんでした。もう一度確認してください。`);
+        await interaction.editReply({ embeds: [embed] });
         return;
       }
 

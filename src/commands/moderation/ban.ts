@@ -1,4 +1,4 @@
-import { PermissionFlagsBits, SlashCommandBuilder, Client, ChatInputCommandInteraction } from 'discord.js';
+import { PermissionFlagsBits, SlashCommandBuilder, Client, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 import { canModerate, getLogChannel, logAction } from '../../services/moderationService.js';
 import { getOrCreateUser } from '../../database/repositories/userRepository.js';
 
@@ -20,7 +20,10 @@ export default {
     // fetch member safely
     const member = await interaction.guild?.members.fetch(user.id).catch(() => null);
     if (member && !canModerate(interaction.member, member)) {
-      await interaction.reply({ content: 'このユーザーをBANする権限がありません。', ephemeral: true }).catch(() => null);
+      const embed = new EmbedBuilder()
+        .setColor(0xff0000)
+        .setDescription('❌ このユーザーをBANする権限がありません。');
+      await interaction.reply({ embeds: [embed], ephemeral: true }).catch(() => null);
       return;
     }
 
@@ -40,9 +43,16 @@ export default {
         await logChannel.send({ embeds: [ { title: '🔨 メンバーをBANしました', description: `ユーザー: ${user.tag}\nモデレーター: ${interaction.user.tag}\n理由: ${reason}`, color: 0xff0000, timestamp: new Date().toISOString() } ] }).catch(() => null);
       }
 
-      await interaction.editReply({ content: `${user.tag} をBANしました。` }).catch(() => null);
+      const embed = new EmbedBuilder()
+        .setColor(0xff0000)
+        .setTitle('🔨 BAN')
+        .setDescription(`${user.tag} をBANしました。`);
+      await interaction.editReply({ embeds: [embed] }).catch(() => null);
     } catch (err: any) {
-      await interaction.editReply({ content: err?.message ?? 'BAN に失敗しました。' }).catch(() => null);
+      const embed = new EmbedBuilder()
+        .setColor(0xff0000)
+        .setDescription(`❌ ${err?.message ?? 'BAN に失敗しました。'}`);
+      await interaction.editReply({ embeds: [embed] }).catch(() => null);
     }
   }
 };

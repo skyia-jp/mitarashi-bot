@@ -1,4 +1,4 @@
-import { PermissionFlagsBits, SlashCommandBuilder, Client, ChatInputCommandInteraction } from 'discord.js';
+import { PermissionFlagsBits, SlashCommandBuilder, Client, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 import { canModerate, warnUser } from '../../services/moderationService.js';
 
 export default {
@@ -26,12 +26,18 @@ export default {
       const level = interaction.options.getInteger('level') ?? 1;
 
       if (!targetMember) {
-        await interaction.editReply({ content: '指定したユーザーが見つかりませんでした。' }).catch(() => null);
+        const embed = new EmbedBuilder()
+          .setColor(0xff0000)
+          .setDescription('❌ 指定したユーザーが見つかりませんでした。');
+        await interaction.editReply({ embeds: [embed] }).catch(() => null);
         return;
       }
 
       if (!canModerate(interaction.member, targetMember)) {
-        await interaction.editReply({ content: 'このユーザーを警告する権限がありません。' }).catch(() => null);
+        const embed = new EmbedBuilder()
+          .setColor(0xff0000)
+          .setDescription('❌ このユーザーを警告する権限がありません。');
+        await interaction.editReply({ embeds: [embed] }).catch(() => null);
         return;
       }
 
@@ -86,9 +92,21 @@ export default {
         ]
       }).catch(() => null);
 
-      await interaction.editReply({ content: `${targetMember} にレベル${level}の警告を発行しました。累計: ${totalWarnings}件 / ${totalPoints}ポイント（ステータス: ${severityLabel}）` }).catch(() => null);
+      const embed = new EmbedBuilder()
+        .setColor(severityColor)
+        .setTitle('⚠️ 警告発行')
+        .setDescription(`${targetMember} にレベル${level}の警告を発行しました。`)
+        .addFields(
+          { name: '累計警告数', value: `${totalWarnings}件`, inline: true },
+          { name: '累計ポイント', value: `${totalPoints}pt`, inline: true },
+          { name: 'ステータス', value: severityLabel, inline: true }
+        );
+      await interaction.editReply({ embeds: [embed] }).catch(() => null);
     } catch (err: any) {
-      await interaction.editReply({ content: err?.message ?? '警告の発行に失敗しました。' }).catch(() => null);
+      const embed = new EmbedBuilder()
+        .setColor(0xff0000)
+        .setDescription(`❌ ${err?.message ?? '警告の発行に失敗しました。'}`);
+      await interaction.editReply({ embeds: [embed] }).catch(() => null);
     }
   }
 };

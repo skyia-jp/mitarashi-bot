@@ -16,7 +16,7 @@ export default {
     const subcommand = interaction.options.getSubcommand();
 
     if (subcommand === 'leaderboard') {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply();
       const days = interaction.options.getInteger('days') ?? 7;
       const limit = interaction.options.getInteger('limit') ?? 10;
       const records = (await getActivityLeaderboard(interaction.guildId as string, days, limit)) as any[];
@@ -28,8 +28,7 @@ export default {
 
       const description = records
         .map((entry, index) => {
-          const name = entry.user?.username ?? entry.user?.discordId ?? 'Unknown';
-          return `${index + 1}. **${name}** - メッセージ ${entry.messageCount}件 / VC ${entry.voiceMinutes}分`;
+          return `${index + 1}. <@${entry.discordUserId}> - メッセージ ${entry.messageCount}件 / VC ${entry.voiceMinutes}分`;
         })
         .join('\n');
 

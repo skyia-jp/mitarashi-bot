@@ -1,4 +1,4 @@
-import { PermissionFlagsBits, SlashCommandBuilder, Client, ChatInputCommandInteraction } from 'discord.js';
+import { PermissionFlagsBits, SlashCommandBuilder, Client, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 import { canModerate, getLogChannel, logAction } from '../../services/moderationService.js';
 import { getOrCreateUser } from '../../database/repositories/userRepository.js';
 
@@ -16,12 +16,18 @@ export default {
     const reason = interaction.options.getString('reason') || '理由は指定されていません';
 
     if (!targetMember) {
-      await interaction.reply({ content: '指定したメンバーが見つかりません。', ephemeral: true }).catch(() => null);
+      const embed = new EmbedBuilder()
+        .setColor(0xff0000)
+        .setDescription('❌ 指定したメンバーが見つかりません。');
+      await interaction.reply({ embeds: [embed], ephemeral: true }).catch(() => null);
       return;
     }
 
     if (!canModerate(interaction.member, targetMember)) {
-      await interaction.reply({ content: 'このユーザーをキックする権限がありません。', ephemeral: true }).catch(() => null);
+      const embed = new EmbedBuilder()
+        .setColor(0xff0000)
+        .setDescription('❌ このユーザーをキックする権限がありません。');
+      await interaction.reply({ embeds: [embed], ephemeral: true }).catch(() => null);
       return;
     }
 
@@ -40,9 +46,16 @@ export default {
         await logChannel.send({ embeds: [ { title: '👢 メンバーをキックしました', description: `ユーザー: ${targetMember.user.tag}\nモデレーター: ${interaction.user.tag}\n理由: ${reason}`, color: 0xffa500, timestamp: new Date().toISOString() } ] }).catch(() => null);
       }
 
-      await interaction.editReply({ content: `${targetMember.user.tag} をキックしました。` }).catch(() => null);
+      const embed = new EmbedBuilder()
+        .setColor(0xffa500)
+        .setTitle('👢 キック')
+        .setDescription(`${targetMember.user.tag} をキックしました。`);
+      await interaction.editReply({ embeds: [embed] }).catch(() => null);
     } catch (err: any) {
-      await interaction.editReply({ content: err?.message ?? 'キックに失敗しました。' }).catch(() => null);
+      const embed = new EmbedBuilder()
+        .setColor(0xff0000)
+        .setDescription(`❌ ${err?.message ?? 'キックに失敗しました。'}`);
+      await interaction.editReply({ embeds: [embed] }).catch(() => null);
     }
   }
 };

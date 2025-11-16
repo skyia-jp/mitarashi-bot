@@ -1,4 +1,4 @@
-import { PermissionFlagsBits, SlashCommandBuilder, Client, ChatInputCommandInteraction, User } from 'discord.js';
+import { PermissionFlagsBits, SlashCommandBuilder, Client, ChatInputCommandInteraction, User, EmbedBuilder } from 'discord.js';
 import { OWNER_IDS } from '../../config/constants.js';
 import {
   CurrencyError,
@@ -37,20 +37,27 @@ async function handleCurrencyError(interaction: ChatInputCommandInteraction, err
     const ctx = err.context ?? {};
     if (err.code === 'COOLDOWN_ACTIVE' && ctx.retryAt) {
       const retryTime = ctx.retryAt instanceof Date ? ctx.retryAt : new Date(ctx.retryAt);
-      await interaction.editReply({
-        content: `⏳ デイリーボーナスはまだ受け取れません。次回は <t:${Math.floor(retryTime.getTime() / 1000)}:R> に受け取れます。`
-      });
+      const embed = new EmbedBuilder()
+        .setColor(0xf39c12)
+        .setTitle('⏳ クールダウン中')
+        .setDescription(`デイリーボーナスはまだ受け取れません。\n次回は <t:${Math.floor(retryTime.getTime() / 1000)}:R> に受け取れます。`);
+      await interaction.editReply({ embeds: [embed] });
       return;
     }
 
     if (err.code === 'INSUFFICIENT_FUNDS') {
-      await interaction.editReply({
-        content: `💸 残高が不足しています。（現在: ${formatCoins(ctx.current ?? 0)}, 必要: ${formatCoins(ctx.required ?? 0)})`
-      });
+      const embed = new EmbedBuilder()
+        .setColor(0xff0000)
+        .setTitle('💸 残高不足')
+        .setDescription(`残高が不足しています。\n現在: ${formatCoins(ctx.current ?? 0)}\n必要: ${formatCoins(ctx.required ?? 0)}`);
+      await interaction.editReply({ embeds: [embed] });
       return;
     }
 
-    await interaction.editReply({ content: `⚠️ エラー: ${err.message}` });
+    const embed = new EmbedBuilder()
+      .setColor(0xff0000)
+      .setDescription(`⚠️ エラー: ${err.message}`);
+    await interaction.editReply({ embeds: [embed] });
     return;
   }
 
@@ -110,9 +117,11 @@ export default {
           const reward = daily.reward;
           const balance = daily.balance;
           const nextClaimAt = daily.nextClaimAt ? new Date(daily.nextClaimAt) : new Date();
-          await interaction.editReply({
-            content: `🎁 デイリーボーナスとして **${formatCoins(reward)}** を受け取りました！次回は <t:${Math.floor(nextClaimAt.getTime() / 1000)}:R> に受け取れます。現在の残高: ${formatCoins(balance?.balance ?? balance)}`
-          });
+          const embed = new EmbedBuilder()
+            .setColor(0x00ff00)
+            .setTitle('🎁 デイリーボーナス')
+            .setDescription(`**${formatCoins(reward)}** を受け取りました！\n次回は <t:${Math.floor(nextClaimAt.getTime() / 1000)}:R> に受け取れます。\n現在の残高: ${formatCoins(balance?.balance ?? balance)}`);
+          await interaction.editReply({ embeds: [embed] });
           break;
         }
         case 'give': {
@@ -125,14 +134,23 @@ export default {
             metadata: { method: 'command' }
           } as any)) as any;
 
-          await interaction.editReply({
-            content: `🤝 ${targetUser} に **${formatCoins(amount)}** を送金しました。あなたの残高: ${formatCoins(result.sender.balance.balance)} / 相手の残高: ${formatCoins(result.recipient.balance.balance)}`
-          });
+          const embed = new EmbedBuilder()
+            .setColor(0x00ff00)
+            .setTitle('🤝 送金完了')
+            .setDescription(`${targetUser} に **${formatCoins(amount)}** を送金しました。`)
+            .addFields(
+              { name: 'あなたの残高', value: formatCoins(result.sender.balance.balance), inline: true },
+              { name: '相手の残高', value: formatCoins(result.recipient.balance.balance), inline: true }
+            );
+          await interaction.editReply({ embeds: [embed] });
           break;
         }
         case 'add': {
           if (!isOwnerOrAdmin(interaction)) {
-            await interaction.editReply({ content: 'この操作を行う権限がありません。' });
+            const embed = new EmbedBuilder()
+              .setColor(0xff0000)
+              .setDescription('❌ この操作を行う権限がありません。');
+            await interaction.editReply({ embeds: [embed] });
             return;
           }
 
@@ -146,9 +164,11 @@ export default {
             metadata: { by: interaction.user.id }
           } as any)) as any;
 
-          await interaction.editReply({
-            content: `✅ ${targetUser} に **${formatCoins(amount)}** を付与しました。現在の残高: ${formatCoins(creditRes.balance.balance)}`
-          });
+          const embed = new EmbedBuilder()
+            .setColor(0x00ff00)
+            .setTitle('✅ 付与完了')
+            .setDescription(`${targetUser} に **${formatCoins(amount)}** を付与しました。\n現在の残高: ${formatCoins(creditRes.balance.balance)}`);
+          await interaction.editReply({ embeds: [embed] });
           break;
         }
         case 'pay': {
@@ -160,13 +180,19 @@ export default {
             metadata: { method: 'command' }
           } as any)) as any;
 
-          await interaction.editReply({
-            content: `🧾 ${formatCoins(amount)} を消費しました。残高: ${formatCoins(debitRes.balance.balance)}${reason ? `（用途: ${reason}）` : ''}`
-          });
+          const embed = new EmbedBuilder()
+            .setColor(0xe67e22)
+            .setTitle('🧾 消費完了')
+            .setDescription(`${formatCoins(amount)} を消費しました。\n残高: ${formatCoins(debitRes.balance.balance)}${reason ? `\n（用途: ${reason}）` : ''}`);
+          await interaction.editReply({ embeds: [embed] });
           break;
         }
-        default:
-          await interaction.editReply({ content: '未知のサブコマンドです。' });
+        default: {
+          const embed = new EmbedBuilder()
+            .setColor(0xff0000)
+            .setDescription('❌ 未知のサブコマンドです。');
+          await interaction.editReply({ embeds: [embed] });
+        }
       }
     } catch (error) {
       await handleCurrencyError(interaction, error as any);

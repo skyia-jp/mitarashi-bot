@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import dayjs from 'dayjs';
 import {
   assignGuildTask,
@@ -124,7 +124,10 @@ export default {
       const dueDate = parseDueDate(dueInput);
 
       if (dueInput && !dueDate) {
-        await interaction.reply({ content: '期限の形式が正しくありません。', ephemeral: true });
+        const embed = new EmbedBuilder()
+          .setColor(0xff0000)
+          .setDescription('❌ 期限の形式が正しくありません。');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
         return;
       }
 
@@ -134,7 +137,11 @@ export default {
         assigneeUser
       });
 
-      await interaction.reply({ content: `📝 タスク #${task.id} を作成しました。`, ephemeral: true });
+      const embed = new EmbedBuilder()
+        .setColor(0x00ff00)
+        .setTitle('📝 タスク作成')
+        .setDescription(`タスク #${task.id} を作成しました。`);
+      await interaction.reply({ embeds: [embed], ephemeral: true });
       return;
     }
 
@@ -143,10 +150,17 @@ export default {
       const assigneeUser = interaction.options.getUser('assignee', true);
       const result = await assignGuildTask(interaction, taskId, assigneeUser);
       if (result.count === 0) {
-        await interaction.reply({ content: '指定したタスクが見つかりません。', ephemeral: true });
+        const embed = new EmbedBuilder()
+          .setColor(0xff0000)
+          .setDescription('❌ 指定したタスクが見つかりません。');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
         return;
       }
-      await interaction.reply({ content: `👤 タスク #${taskId} の担当者を更新しました。`, ephemeral: true });
+      const embed = new EmbedBuilder()
+        .setColor(0x00ff00)
+        .setTitle('👤 担当者更新')
+        .setDescription(`タスク #${taskId} の担当者を更新しました。`);
+      await interaction.reply({ embeds: [embed], ephemeral: true });
       return;
     }
 
@@ -154,10 +168,17 @@ export default {
       const taskId = interaction.options.getInteger('task_id', true);
       const result = await completeGuildTask(interaction.guildId, taskId);
       if (result.count === 0) {
-        await interaction.reply({ content: '指定したタスクが見つかりません。', ephemeral: true });
+        const embed = new EmbedBuilder()
+          .setColor(0xff0000)
+          .setDescription('❌ 指定したタスクが見つかりません。');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
         return;
       }
-      await interaction.reply({ content: `✅ タスク #${taskId} を完了にしました。`, ephemeral: true });
+      const embed = new EmbedBuilder()
+        .setColor(0x00ff00)
+        .setTitle('✅ タスク完了')
+        .setDescription(`タスク #${taskId} を完了にしました。`);
+      await interaction.reply({ embeds: [embed], ephemeral: true });
       return;
     }
 
@@ -165,10 +186,17 @@ export default {
       const taskId = interaction.options.getInteger('task_id', true);
       const result = await reopenGuildTask(interaction.guildId, taskId);
       if (result.count === 0) {
-        await interaction.reply({ content: '指定したタスクが見つかりません。', ephemeral: true });
+        const embed = new EmbedBuilder()
+          .setColor(0xff0000)
+          .setDescription('❌ 指定したタスクが見つかりません。');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
         return;
       }
-      await interaction.reply({ content: `🔄 タスク #${taskId} を再開しました。`, ephemeral: true });
+      const embed = new EmbedBuilder()
+        .setColor(0x3498db)
+        .setTitle('🔄 タスク再開')
+        .setDescription(`タスク #${taskId} を再開しました。`);
+      await interaction.reply({ embeds: [embed], ephemeral: true });
       return;
     }
 
@@ -177,10 +205,17 @@ export default {
       const status = interaction.options.getString('status', true);
       const result = await updateTaskStatus(interaction.guildId, taskId, status);
       if (result.count === 0) {
-        await interaction.reply({ content: '指定したタスクが見つかりません。', ephemeral: true });
+        const embed = new EmbedBuilder()
+          .setColor(0xff0000)
+          .setDescription('❌ 指定したタスクが見つかりません。');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
         return;
       }
-      await interaction.reply({ content: `📝 タスク #${taskId} のステータスを ${status} に更新しました。`, ephemeral: true });
+      const embed = new EmbedBuilder()
+        .setColor(0x3498db)
+        .setTitle('📝 ステータス更新')
+        .setDescription(`タスク #${taskId} のステータスを ${status} に更新しました。`);
+      await interaction.reply({ embeds: [embed], ephemeral: true });
       return;
     }
 
@@ -207,10 +242,17 @@ export default {
       const taskId = interaction.options.getInteger('task_id', true);
       const result = await deleteGuildTask(interaction.guildId, taskId);
       if (result.count === 0) {
-        await interaction.reply({ content: '指定したタスクが見つかりません。', ephemeral: true });
+        const embed = new EmbedBuilder()
+          .setColor(0xff0000)
+          .setDescription('❌ 指定したタスクが見つかりません。');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
         return;
       }
-      await interaction.reply({ content: `🗑️ タスク #${taskId} を削除しました。`, ephemeral: true });
+      const embed = new EmbedBuilder()
+        .setColor(0xe74c3c)
+        .setTitle('🗑️ タスク削除')
+        .setDescription(`タスク #${taskId} を削除しました。`);
+      await interaction.reply({ embeds: [embed], ephemeral: true });
     }
   }
 };

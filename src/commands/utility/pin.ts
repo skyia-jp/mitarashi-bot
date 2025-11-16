@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, Client, ChatInputCommandInteraction, TextChannel, Message, PermissionFlagsBits } from 'discord.js';
+import { SlashCommandBuilder, Client, ChatInputCommandInteraction, TextChannel, Message, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { pinMessage, unpinMessage } from '../../services/pinService.js';
 
 export default {
@@ -38,15 +38,19 @@ export default {
     if (subcommand === 'add') {
       const message = await channel.messages.fetch(messageId!).catch(() => null);
       if (!message) {
-        await interaction.reply({ content: '指定したメッセージが見つかりません。', ephemeral: true });
+        const embed = new EmbedBuilder()
+          .setColor(0xff0000)
+          .setDescription('❌ 指定したメッセージが見つかりません。');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
         return;
       }
 
       await pinMessage(interaction, message as Message);
-      await interaction.reply({
-        content: `📌 メッセージ ${messageId} を固定しました。以後、新しい投稿後も末尾に再掲されます。`,
-        ephemeral: true
-      });
+      const embed = new EmbedBuilder()
+        .setColor(0x00ff00)
+        .setTitle('📌 メッセージ固定')
+        .setDescription(`メッセージ ${messageId} を固定しました。以後、新しい投稿後も末尾に再掲されます。`);
+      await interaction.reply({ embeds: [embed], ephemeral: true });
       return;
     }
 
@@ -59,21 +63,28 @@ export default {
         (interaction.member ? (interaction.member as import('discord.js').GuildMember).permissions : null);
       const canManage = perms ? perms.has(PermissionFlagsBits.ManageMessages) || perms.has(PermissionFlagsBits.Administrator) : false;
       if (!canManage) {
-        await interaction.reply({ content: 'この操作を行うにはメッセージ管理権限が必要です。', ephemeral: true });
+        const embed = new EmbedBuilder()
+          .setColor(0xff0000)
+          .setDescription('❌ この操作を行うにはメッセージ管理権限が必要です。');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
         return;
       }
 
       const { unpinAllInChannel } = await import('../../services/pinService.js');
       const count = await unpinAllInChannel(interaction, channel);
-      await interaction.reply({
-        content: `📍 このチャンネルのピンをすべて解除しました。合計: ${count} 件。`,
-        ephemeral: true
-      });
+      const embed = new EmbedBuilder()
+        .setColor(0xe74c3c)
+        .setTitle('📍 ピン一括解除')
+        .setDescription(`このチャンネルのピンをすべて解除しました。合計: ${count} 件。`);
+      await interaction.reply({ embeds: [embed], ephemeral: true });
       return;
     }
 
     if (!messageId) {
-      await interaction.reply({ content: 'message_id を指定するか all=true を指定してください。', ephemeral: true });
+      const embed = new EmbedBuilder()
+        .setColor(0xff0000)
+        .setDescription('❌ message_id を指定するか all=true を指定してください。');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
       return;
     }
 
@@ -87,15 +98,16 @@ export default {
           channel
         })
       );
-      await interaction.reply({
-        content: `📍 メッセージ ${messageId} の固定を解除しました。`,
-        ephemeral: true
-      });
+      const embed = new EmbedBuilder()
+        .setColor(0xe74c3c)
+        .setTitle('📍 ピン解除')
+        .setDescription(`メッセージ ${messageId} の固定を解除しました。`);
+      await interaction.reply({ embeds: [embed], ephemeral: true });
     } catch (error) {
-      await interaction.reply({
-        content: '指定したメッセージの固定情報が見つかりませんでした。',
-        ephemeral: true
-      });
+      const embed = new EmbedBuilder()
+        .setColor(0xff0000)
+        .setDescription('❌ 指定したメッセージの固定情報が見つかりませんでした。');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
     }
   }
 };
