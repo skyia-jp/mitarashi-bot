@@ -6,7 +6,10 @@
   - Added the required column `discordUserId` to the `ActivityRecord` table without a default value. This is not possible if the table is not empty.
 
 */
--- DropForeignKey
+-- DropForeignKey (userIdの外部キーを先に削除)
+ALTER TABLE `ActivityRecord` DROP FOREIGN KEY `ActivityRecord_userId_fkey`;
+
+-- DropForeignKey (guildIdの外部キーも削除)
 ALTER TABLE `ActivityRecord` DROP FOREIGN KEY `ActivityRecord_guildId_fkey`;
 
 -- DropIndex
